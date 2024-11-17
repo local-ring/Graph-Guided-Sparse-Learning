@@ -22,16 +22,18 @@ AccPQN = np.zeros((len([nInstances]), 10))
 
 T = toeplitz(pho**np.arange(1, nVars+1))
 # T = np.linalg.toeplitz(pho**np.arange(1, nVars+1))
+# AL: random permutate the index and take the first k elements --> random selection of k features
 RandIndtmp = np.random.permutation(nVars)
 RandInd = np.sort(RandIndtmp[:k])
 print(RandInd)
+# AL: randomly select  +1 or -1 for each selected k features
 RandInt = 2 * np.random.randint(0, 2, k) - 1
 # RandInt = 2 * np.random.randint(0, 2, size=(k, 1)) - 1
 # X = multivariate_normal.rvs(mean=np.zeros(nVars), cov=T, size=nInstances)
 X = np.random.multivariate_normal(np.zeros(nVars), T, nInstances)
 w = np.zeros((nVars, 1))
 w[RandInd] = RandInt.reshape(-1, 1)
-utrue = w#.copy()
+utrue = w #.copy()
 
 print("Check!!!")
 tEnd = time.process_time() - tStart
@@ -47,7 +49,6 @@ pho = np.sqrt(nInstances)
 print("Check!!!")
 tEnd = time.process_time() - tStart
 print("Execution time(Before):", tEnd)
-
 
 # Initial guess of parameters
 uSimplex = np.ones((nVars, 1)) * (1 / nVars)
