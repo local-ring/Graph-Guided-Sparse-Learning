@@ -25,6 +25,8 @@ def L0Obj(X, m, y, L, pho, mu, d, h):
     M = inv((1/pho) * X @ SpDiag @ X.T + np.eye(n))
     # generate the correspodning assignment matrix
     assignemen_matrix = m.reshape(d,h)
+    # print(f"assignemen_matrix: {assignemen_matrix}")
+    # print(f"m: {m}")
     # generate the graph penalty term
     graph_penalty = mu * np.trace(assignemen_matrix.T @ L @ assignemen_matrix)
     f = y.T @ M @ y + graph_penalty # AL: why conjuate transpose? i remove the .conj()

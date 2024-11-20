@@ -1,4 +1,4 @@
-from gurobipy import Model
+from gurobipy import Model, Env
 import numpy as np
 def ProjOperator_Gurobi(m, k, d, h):
     """
@@ -36,30 +36,31 @@ def ProjOperator_Gurobi(m, k, d, h):
     # Concatenate A and B to create the constraint matrix
     C = np.vstack([A, B])
     Cb = np.vstack([b, c])
+    # print("C", C.shape, C)
+    # print("Cb", Cb.shape, Cb)
 
-    # Create a Gurobi model
-    model = Model()
-    # Set Gurobi parameters
-    model.setParam('OutputFlag', 0)
-    model.setParam('IterationLimit', 500)
+    with Env(empty=True) as env:
+        env.setParam('OutputFlag', 0) # I want to suppress the annoying license message
+        env.start()
+        with Model(env=env) as model:
+            # Set Gurobi parameters
+            model.setParam('OutputFlag', 0)
+            model.setParam('IterationLimit', 500)
 
-    # Add variables
-    x = model.addMVar(d*h, lb=0.0, ub=1.0)
+            # Add variables
+            x = model.addMVar(d*h, lb=0.0, ub=1.0)
 
-    # Set objective function
-    Q = np.eye(d*h)
-    f = -2*m.flatten()
-    x = model.addMVar(d*h, ub=1.0, lb=0.0)
-    # print("x", x.shape)
-    # print("f", f.shape)
-    model.setObjective(x@Q@x + x@f)
-    model.addConstr(C @ x <= Cb)
+            # Set objective function
+            Q = np.eye(d*h)
+            f = -2*m.flatten()
+            # print("x", x.shape)
+            # print("f", f.shape)
+            model.setObjective(x@Q@x + x@f)
+            model.addConstr(C @ x <= Cb)
 
-    # Optimize model
-    model.optimize()
+            # Optimize model
+            model.optimize()
 
-    # Get the results
-    x = x.x # no need the new-axis for now...
-    # print("result_x", x.shape)
-
+            # Get the results
+            x = x.x
     return x

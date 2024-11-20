@@ -13,19 +13,20 @@ import random
 
 tStart = time.process_time()
 # Generate synthetic data
-# Parametersx
-n = 500  # Number of samples
-d = 200   # Number of features
+# Parameters
+n = 1000  # Number of samples
+d = 300   # Number of features
 k = 20   # Number of non-zero features
-h = 4    # Number of clusters
+h = 5    # Number of clusters
 nVars = d*h # Number of Boolean variables in m
 theta = 1  # Probability of connection within clusters
-gamma = 2.5  # Noise standard deviation
-pho = 0.1
-mu = 0.8
+gamma = 1.5  # Noise standard deviation
+pho = 1
+mu = 5
 SNR = 1
 
-fixed_seed = False
+fixed_seed = 1
+random_rounding = 0
 # read a fixed synthetic data from a file if fixed_seed is True because we want to compare the results with the original results
 if fixed_seed:
     file_path = "synthetic_data.npz"
@@ -36,22 +37,24 @@ else:
     # Save the synthetic data to a file
     file_path = "synthetic_data.npz"
     save_synthetic_data_to_file(file_path, X, w_true, y, adj_matrix, L, clusters_true, selected_features_true)
-    print("selected_features_true", selected_features_true)
-    print("clusters_true", clusters_true)
+
+print("selected_features_true", selected_features_true)
+print("clusters_true", clusters_true)
 
 # we need to modify the matrix X to define the objective function
 X_hat = np.repeat(X, h, axis=1)
-
+# print("w_true:", w_true) 
 
 print("Check!!!")
 tEnd = time.process_time() - tStart
 print("Execution time (generating the data):", tEnd)
 
 # Initial guess of parameters
-m_initial = np.ones((nVars, 1)) * (1 / nVars)
+# m_initial = np.ones((nVars, 1)) * (1 / nVars)
+m_initial = np.random.normal(0, 1, (nVars, 1))
 
 
-# Set up Objective Function L0Obj(X, m, y, pho, mu):
+# Set up Objective Function L0Obj(X, m, y, L, pho, mu, d, h)::
 funObj = lambda m: L0Obj(X_hat, m, y, L, pho, mu, d, h)
 
 # Set up Simplex Projection Function ProjOperator_Gurobi(m, k, d, h):
@@ -65,34 +68,64 @@ options = {'maxIter': 50}
 tStart = time.process_time()
 mout, obj, _ = minConF_PQN(funObj, m_initial, funProj, options)
 print(f"uout: {mout}")
+# save the result to a file 
+sio.savemat('mout.mat', {'mout': mout})
 tEnd = time.process_time() - tStart
 
-# round the result randomly according to its value for a few times and select the best one in terms of the objective function
-T = 500
-min_obj = np.inf
-min_round = np.zeros((nVars, ))  # initialize the best result
-for _ in range(T):
-    m_round = (np.random.rand(nVars, ) < mout).astype(int)
-    obj_round, _ = funObj(m_round)
-    if obj_round < min_obj:
-        min_obj = obj_round
-        min_round = m_round
 
-print("min_obj", min_obj)
-print("min_round", min_round)
+if random_rounding:
+    # round the result randomly according to its value for a few times and select the best one in terms of the objective function
+    T = 2000
+    min_obj = np.inf
+    min_round = np.zeros((nVars, ))  # initialize the best result
+    m_grouped = mout.reshape(d, h)
+    """
+    here we propose a different way to round this result. note that we have introduce h times more variables than the original problem. so the number are diluted, it is hard to get more than a lot of ones in the result if we round it according to its probability. because even the selected one are very small.
 
-selected_features_predict = []
-clusters_predict = {}
-# parse the result m_round to the selected features and clusters
-m = min_round.reshape(d, h)
-for i in range(d):
-    if np.sum(m[i]) > 0:
-        selected_features_predict.append(i)
-        cluster = np.where(m[i] > 0)[0][0]
+    so we need to, first, treat variables associated with the same feature as a whole, take the sum, and then round it according to the probability to determine whether this feature is selected or not. Then, for the selected features, we need to determine which cluster it belongs to according to the probability.
+    """
+    for _ in range(T):
+        one_realization = np.zeros((d, h))
+        feature_round = (np.random.rand(d)<np.sum(m_grouped, axis=1)).astype(int)
+
+        for i in range(d):
+            if feature_round[i] == 1:
+                cluster = np.random.choice(h, p=m_grouped[i]/np.sum(m_grouped[i])) # TODO: another choice is to introduce a temperature parameter to control the randomness or an extra "discard" choice with the 1- sum(m_grouped[i]) probability
+                one_realization[i, cluster] = 1
+
+        m_round = one_realization.flatten()
+        obj = funObj(m_round)[0]
+        if obj < min_obj:
+            min_obj = obj
+            min_round = m_round
+
+    selected_features_predict = []
+    clusters_predict = {}
+    # parse the result m_round to the selected features and clusters
+    m = min_round.reshape(d, h)
+    for i in range(d):
+        if np.sum(m[i]) > 0:
+            selected_features_predict.append(i)
+            cluster = np.where(m[i] > 0)[0][0]
+            if cluster in clusters_predict:
+                clusters_predict[cluster].append(i)
+            else:
+                clusters_predict[cluster] = [i]
+
+else:
+    m_grouped = mout.reshape(d, h)
+    feature_prob = np.sum(m_grouped, axis=1)
+    feature_rank = np.argsort(np.abs(feature_prob))[::-1]
+    selected_features_predict = feature_rank[:k]
+    clusters_predict = {}
+    for i in selected_features_predict:
+        cluster = np.argmax(m_grouped[i])
         if cluster in clusters_predict:
             clusters_predict[cluster].append(i)
         else:
             clusters_predict[cluster] = [i]
+
+tEnd = time.process_time() - tStart
 
 # find the intersection of the selected features and clusters
 C = np.intersect1d(selected_features_true, selected_features_predict)

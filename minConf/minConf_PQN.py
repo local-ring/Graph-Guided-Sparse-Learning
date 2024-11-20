@@ -233,7 +233,7 @@ def minConF_PQN(funObj, x, funProj, options=None):
             t_prev = temp
             print(f"t: {t}, shape: {getattr(t, 'shape', 'scalar')}, type: {type(t)}")
             print(f"d: {d}, shape: {d.shape}, type: {type(d)}")
-            x_new = x + t @ d
+            x_new = x + t * d
             f_new, g_new = funObj(x_new)
             funEvals = funEvals + 1
 

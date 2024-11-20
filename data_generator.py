@@ -32,22 +32,23 @@ def visualize_graph(G, clusters, selected_features):
     plt.show()
 
 def read_synthetic_data_from_file(file_path):
-    # Read the synthetic data from a file
     print("reading the synthetic data from the file", file_path)
-    with np.load(file_path) as data:
+    with np.load(file_path, allow_pickle=True) as data:
         X = data["X"]
         w = data["w"]
         y = data["y"]
-        adj_matrix = data["adj_matrix"]
-        laplacian_matrix = data["laplacian_matrix"]
         clusters = data["clusters"]
         selected_features = data["selected_features"]
-    
+    adj_matrix = sp.load_npz(file_path.replace(".npz", "_adj_matrix.npz"))
+    laplacian_matrix = sp.load_npz(file_path.replace(".npz", "_laplacian_matrix.npz"))
+    print(X.shape, w.shape, y.shape, adj_matrix.shape, laplacian_matrix.shape, clusters.shape, selected_features.shape)
     return X, w, y, adj_matrix, laplacian_matrix, clusters, selected_features
 
 def save_synthetic_data_to_file(file_path, X, w, y, adj_matrix, laplacian_matrix, clusters, selected_features):
-    # Save the synthetic data to a file
-    np.savez(file_path, X=X, w=w, y=y, adj_matrix=adj_matrix, laplacian_matrix=laplacian_matrix, clusters=clusters, selected_features=selected_features)
+    np.savez(file_path, X=X, w=w, y=y, clusters=clusters, selected_features=selected_features)
+    sp.save_npz(file_path.replace(".npz", "_adj_matrix.npz"), adj_matrix) # we need to save the sparse matrix separately
+    sp.save_npz(file_path.replace(".npz", "_laplacian_matrix.npz"), laplacian_matrix)
+
     print("synthetic data saved to the file", file_path)
 
 def generate_synthetic_data_with_graph(n, d, k, h, theta, gamma, visualize=False):
@@ -64,9 +65,14 @@ def generate_synthetic_data_with_graph(n, d, k, h, theta, gamma, visualize=False
     # Step 4: Construct the regression weight vector w
     w = np.zeros(d)
     for cluster in clusters:
-        sign = np.random.choice([-1, 1])  # Assign same sign to all features in the cluster
+        """
+        we need to find a different way to assign the value of the weights because we want different weights for each cluster, what i am concerned is that
+        if they only have two values, it's highly likely that the weights will be the same for most of the clusters, which will confuse the model
+        """
+        sign = np.random.choice([-1, 1])
+        feature_value = np.random.normal(1/np.sqrt(k), 1) * sign
         for feature in cluster:
-            w[feature] = sign * (1 / np.sqrt(k))
+            w[feature] = feature_value
     
     # Step 5: Create a sparse adjacency matrix for the graph
     adj_matrix = sp.lil_matrix((d, d))  # Start with a sparse matrix in List of Lists format
@@ -86,7 +92,8 @@ def generate_synthetic_data_with_graph(n, d, k, h, theta, gamma, visualize=False
     if not nx.is_connected(G):
         components = list(nx.connected_components(G))
         for i in range(1, len(components)):
-            # Connect an isolated component to the main component
+            # Connect an isolated component to the main component 
+            # TODO: not only the main component, but also to the other components
             G.add_edge(next(iter(components[i])), next(iter(components[0])))
     
     # Update the adjacency matrix after connecting components
