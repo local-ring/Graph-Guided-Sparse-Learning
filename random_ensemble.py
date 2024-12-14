@@ -14,32 +14,44 @@ import random
 tStart = time.process_time()
 # Generate synthetic data
 # Parameters
-n = 1000  # Number of samples
-d = 300   # Number of features
-k = 20   # Number of non-zero features
-h = 5    # Number of clusters
+n = 500  # Number of samples
+d = 7   # Number of features
+k = 4   # Number of non-zero features
+h = 1    # Number of clusters
 nVars = d*h # Number of Boolean variables in m
 theta = 1  # Probability of connection within clusters
 gamma = 1.5  # Noise standard deviation
-pho = 1
-mu = 5
+pho = 1/n # divide by sample size 
+mu = 1
 SNR = 1
 
-fixed_seed = 1
+fixed_seed = 0
 random_rounding = 0
+connected = False
+correlated = True
+random_graph = False
 # read a fixed synthetic data from a file if fixed_seed is True because we want to compare the results with the original results
 if fixed_seed:
     file_path = "synthetic_data.npz"
     X, w_true, y, adj_matrix, L, clusters_true, selected_features_true = read_synthetic_data_from_file(file_path)
 else:
     # Generate synthetic data
-    X, w_true, y, adj_matrix, L, clusters_true, selected_features_true = generate_synthetic_data_with_graph(n, d, k, h, theta, gamma, visualize=True)
+    
+    X, w_true, y, adj_matrix, L, clusters_true, selected_features_true = generate_synthetic_data_with_graph(n, d, k, h, theta, gamma, visualize=False, connected=connected, correlated=correlated, random=random_graph)
+    clusters_true = [np.array(cluster) for cluster in clusters_true]  # Ensure clusters are arrays
+    selected_features_true = np.array(selected_features_true)  # Ensure selected_features is an array
+    print("selected_features_true", selected_features_true)
+    print("clusters_true", clusters_true)
+    print("Type of clusters:", type(clusters_true))
+    print("Contents of clusters:", clusters_true)
+    print("Type of each cluster:", [type(cluster) for cluster in clusters_true])
+    print("Lengths of clusters:", [len(cluster) for cluster in clusters_true])
     # Save the synthetic data to a file
     file_path = "synthetic_data.npz"
-    save_synthetic_data_to_file(file_path, X, w_true, y, adj_matrix, L, clusters_true, selected_features_true)
+    # save_synthetic_data_to_file(file_path, X, w_true, y, adj_matrix, L, clusters_true, selected_features_true)
 
-print("selected_features_true", selected_features_true)
-print("clusters_true", clusters_true)
+    print("selected_features_true", selected_features_true)
+    print("clusters_true", clusters_true)
 
 # we need to modify the matrix X to define the objective function
 X_hat = np.repeat(X, h, axis=1)
@@ -54,7 +66,7 @@ print("Execution time (generating the data):", tEnd)
 m_initial = np.random.normal(0, 1, (nVars, 1))
 
 
-# Set up Objective Function L0Obj(X, m, y, L, pho, mu, d, h)::
+# Set up Objective Function L0Obj(X, m, y, L, rho, mu, d, h)::
 funObj = lambda m: L0Obj(X_hat, m, y, L, pho, mu, d, h)
 
 # Set up Simplex Projection Function ProjOperator_Gurobi(m, k, d, h):
@@ -133,10 +145,21 @@ C = np.intersect1d(selected_features_true, selected_features_predict)
 # Find the intersection
 AccPQN = len(C) / k
 
+# sort the dict for clear comparison
+print("clusters_predict", clusters_predict)
+clusters_predict_without_order = [clusters_predict[i] for i in range(h)]
+for cluster in clusters_predict_without_order:
+    cluster.sort()
+clusters_predict_without_order.sort(key=lambda x: x[0])
+for cluster in clusters_true:
+    cluster.sort()
+clusters_true.sort(key=lambda x: x[0])
 
 print("Execution time:", tEnd)
-print("Accuracy PQN:", AccPQN)
-print("clusters_predict", clusters_predict)
-print("clusters_true", clusters_true)  
+selected_features_predict.sort()
+selected_features_true.sort()
+print("Accuracy of PQN:", AccPQN)
+print("clusters_predict", clusters_predict_without_order)
+print("clusters_true", clusters_true)
 print("selected_features_predict", selected_features_predict)
 print("selected_features_true", selected_features_true)
