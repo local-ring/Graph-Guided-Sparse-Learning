@@ -179,7 +179,7 @@ def generate_graph(d, k, h, theta, connected=False, visualize=True, random=True)
         # selected_features = [0, 1, 2, 3]  # Selected features (adjusted for 0-based indexing)
         # feature_value = 1.0  # Assign the same weight to all selected features
 
-        inter_cluster_prob = 0.005
+        inter_cluster_prob = 0.05
         proportion_correlated = 0.2
 
         all_features = np.arange(d)
@@ -209,15 +209,16 @@ def generate_graph(d, k, h, theta, connected=False, visualize=True, random=True)
                 adj_matrix[j, i] = 1
 
         # connect the two clusters with an edge between a selected feature and a not selected feature
-        # for i in range(k):
-        #     for j in range(k, d):
-        #         if np.random.rand() < inter_cluster_prob:
-        #             adj_matrix[i, j] = 1
-        #             adj_matrix[j, i] = 1
+        for i in range(k):
+            for j in range(k, d):
+                if np.random.rand() < inter_cluster_prob:
+                    adj_matrix[i, j] = 1
+                    adj_matrix[j, i] = 1
+                    print(f"inter-cluster edge: ({i}, {j})")
 
         # we only connect the first selected feature with the last not selected feature
-        adj_matrix[0, d-1] = 1
-        adj_matrix[d-1, 0] = 1
+        # adj_matrix[0, d-1] = 1
+        # adj_matrix[d-1, 0] = 1
 
         # form the laplacian matrix
         G = nx.from_scipy_sparse_array(adj_matrix)
@@ -236,8 +237,6 @@ def generate_graph(d, k, h, theta, connected=False, visualize=True, random=True)
                 correlated_pairs.append((i, i + k))
                 print(f"correlated pair: ({i}, {i + k})")
 
-
-    
             
     # Optional: Visualize the graph with cluster-based colors
     if visualize:

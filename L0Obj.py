@@ -2,7 +2,7 @@ import numpy as np
 from scipy.sparse import spdiags
 from scipy.linalg import inv
 
-def L0Obj(X, m, y, L, pho, mu, d, h):
+def L0Obj(X, m, y, L, pho, mu, d, h, n):
     """
     Compute the objective function value and gradient for the L0 regularized least squares problem.
     Parameters:
@@ -22,7 +22,7 @@ def L0Obj(X, m, y, L, pho, mu, d, h):
     SpDiag = spdiags(m.flatten(), 0, dh, dh)
     # print(SpDiag)
     # print(f"SpDiag: {SpDiag.toarray()[-1][-1]}")
-    M = inv((1/pho) * X @ SpDiag @ X.T + np.eye(n))
+    M = inv((1/pho) * X @ SpDiag @ X.T + n * np.eye(n))
     # generate the correspodning assignment matrix
     assignment_matrix = m.reshape(d,h)
     # print(f"assignemen_matrix: {assignemen_matrix}")

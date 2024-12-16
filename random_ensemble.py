@@ -14,19 +14,19 @@ import random
 tStart = time.process_time()
 # Generate synthetic data
 # Parameters
-n = 500  # Number of samples
-d = 100   # Number of features
+n = 600  # Number of samples
+d = 200   # Number of features
 k = 20   # Number of non-zero features
 h = 1    # Number of clusters
 nVars = d*h # Number of Boolean variables in m
 theta = 1  # Probability of connection within clusters
 gamma = 1.5  # Noise standard deviation
-pho = 1/n # divide by sample size 
+pho = 1 # divide by sample size 
 mu = 1
 SNR = 1
 
 fixed_seed = 0
-random_rounding = 0
+random_rounding = 1
 connected = False
 correlated = True
 random_graph = False
@@ -63,11 +63,13 @@ print("Execution time (generating the data):", tEnd)
 
 # Initial guess of parameters
 # m_initial = np.ones((nVars, 1)) * (1 / nVars)
-m_initial = np.random.normal(0, 1, (nVars, 1))
-
+# m_initial = np.random.normal(0, 1, (nVars, 1))
+# m_initial = np.random.normal(0, 1/nVars, (nVars, 1))
+m_initial = np.zeros((nVars, 1))
+m_initial[0:k] = 1
 
 # Set up Objective Function L0Obj(X, m, y, L, rho, mu, d, h)::
-funObj = lambda m: L0Obj(X_hat, m, y, L, pho, mu, d, h)
+funObj = lambda m: L0Obj(X_hat, m, y, L, pho, mu, d, h, n)
 
 # Set up Simplex Projection Function ProjOperator_Gurobi(m, k, d, h):
 funProj = lambda m: ProjOperator_Gurobi(m, k, d, h)
@@ -76,7 +78,7 @@ tEnd = time.process_time() - tStart
 print("Execution time(Before):", tEnd)
 print("start!!!")
 # Solve with PQN
-options = {'maxIter': 50, 'verbose': 0}
+options = {'maxIter': 100, 'verbose': 2}
 tStart = time.process_time()
 mout, obj, _ = minConF_PQN(funObj, m_initial, funProj, options)
 print(f"uout: {mout}")
@@ -87,7 +89,7 @@ tEnd = time.process_time() - tStart
 
 if random_rounding:
     # round the result randomly according to its value for a few times and select the best one in terms of the objective function
-    T = 2000
+    T = 1000
     min_obj = np.inf
     min_round = np.zeros((nVars, ))  # initialize the best result
     m_grouped = mout.reshape(d, h)
@@ -147,7 +149,7 @@ AccPQN = len(C) / k
 
 # sort the dict for clear comparison
 print("clusters_predict", clusters_predict)
-clusters_predict_without_order = [clusters_predict[i] for i in range(h)]
+clusters_predict_without_order = [clusters_predict[i] for i in range(h)] if clusters_predict else []
 for cluster in clusters_predict_without_order:
     cluster.sort()
 clusters_predict_without_order.sort(key=lambda x: x[0])

@@ -50,11 +50,12 @@ def experiment(n, d, k, h, theta, gamma, pho, mu, fixed_seed, random_rounding, c
 
     # Initial guess of parameters
     # m_initial = np.ones((nVars, 1)) * (1 / nVars)
-    m_initial = np.random.normal(0, 1, (nVars, 1))
+    # m_initial = np.random.normal(0, 1, (nVars, 1))
+    m_initial = np.zeros((nVars, 1))
 
 
     # Set up Objective Function L0Obj(X, m, y, L, rho, mu, d, h)::
-    funObj = lambda m: L0Obj(X_hat, m, y, L, pho, mu, d, h)
+    funObj = lambda m: L0Obj(X_hat, m, y, L, pho, mu, d, h, n)
 
     # Set up Simplex Projection Function ProjOperator_Gurobi(m, k, d, h):
     funProj = lambda m: ProjOperator_Gurobi(m, k, d, h)
@@ -63,7 +64,7 @@ def experiment(n, d, k, h, theta, gamma, pho, mu, fixed_seed, random_rounding, c
     print("Execution time(Before):", tEnd)
     print("start!!!")
     # Solve with PQN
-    options = {'maxIter': maxIter, 'verbose': 1}
+    options = {'maxIter': maxIter, 'verbose': 2}
     tStart = time.process_time()
     mout, obj, _ = minConF_PQN(funObj, m_initial, funProj, options)
     # print(f"mout: {mout}")
