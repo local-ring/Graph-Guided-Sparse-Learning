@@ -15,8 +15,8 @@ tStart = time.process_time()
 # Generate synthetic data
 # Parameters
 n = 500  # Number of samples
-d = 7   # Number of features
-k = 4   # Number of non-zero features
+d = 100   # Number of features
+k = 20   # Number of non-zero features
 h = 1    # Number of clusters
 nVars = d*h # Number of Boolean variables in m
 theta = 1  # Probability of connection within clusters
@@ -30,28 +30,28 @@ random_rounding = 0
 connected = False
 correlated = True
 random_graph = False
+visualize = True
 # read a fixed synthetic data from a file if fixed_seed is True because we want to compare the results with the original results
 if fixed_seed:
     file_path = "synthetic_data.npz"
     X, w_true, y, adj_matrix, L, clusters_true, selected_features_true = read_synthetic_data_from_file(file_path)
 else:
     # Generate synthetic data
-    
-    X, w_true, y, adj_matrix, L, clusters_true, selected_features_true = generate_synthetic_data_with_graph(n, d, k, h, theta, gamma, visualize=False, connected=connected, correlated=correlated, random=random_graph)
+    X, w_true, y, adj_matrix, L, clusters_true, selected_features_true = generate_synthetic_data_with_graph(n, d, k, h, theta, gamma, visualize=visualize, connected=connected, correlated=correlated, random=random_graph)
     clusters_true = [np.array(cluster) for cluster in clusters_true]  # Ensure clusters are arrays
     selected_features_true = np.array(selected_features_true)  # Ensure selected_features is an array
     print("selected_features_true", selected_features_true)
     print("clusters_true", clusters_true)
-    print("Type of clusters:", type(clusters_true))
-    print("Contents of clusters:", clusters_true)
-    print("Type of each cluster:", [type(cluster) for cluster in clusters_true])
-    print("Lengths of clusters:", [len(cluster) for cluster in clusters_true])
+    # print("Type of clusters:", type(clusters_true))
+    # print("Contents of clusters:", clusters_true)
+    # print("Type of each cluster:", [type(cluster) for cluster in clusters_true])
+    # print("Lengths of clusters:", [len(cluster) for cluster in clusters_true])
     # Save the synthetic data to a file
     file_path = "synthetic_data.npz"
     # save_synthetic_data_to_file(file_path, X, w_true, y, adj_matrix, L, clusters_true, selected_features_true)
 
-    print("selected_features_true", selected_features_true)
-    print("clusters_true", clusters_true)
+    # print("selected_features_true", selected_features_true)
+    # print("clusters_true", clusters_true)
 
 # we need to modify the matrix X to define the objective function
 X_hat = np.repeat(X, h, axis=1)
@@ -76,7 +76,7 @@ tEnd = time.process_time() - tStart
 print("Execution time(Before):", tEnd)
 print("start!!!")
 # Solve with PQN
-options = {'maxIter': 50}
+options = {'maxIter': 50, 'verbose': 0}
 tStart = time.process_time()
 mout, obj, _ = minConF_PQN(funObj, m_initial, funProj, options)
 print(f"uout: {mout}")

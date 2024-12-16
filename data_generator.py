@@ -74,7 +74,7 @@ def read_synthetic_data_from_file(file_path):
         selected_features = data["selected_features"]
     adj_matrix = sp.load_npz(file_path.replace(".npz", "_adj_matrix.npz"))
     laplacian_matrix = sp.load_npz(file_path.replace(".npz", "_laplacian_matrix.npz"))
-    print(X.shape, w.shape, y.shape, adj_matrix.shape, laplacian_matrix.shape, clusters.shape, selected_features.shape)
+    # print(X.shape, w.shape, y.shape, adj_matrix.shape, laplacian_matrix.shape, clusters.shape, selected_features.shape)
     return X, w, y, adj_matrix, laplacian_matrix, clusters, selected_features
 
 def save_synthetic_data_to_file(file_path, X, w, y, adj_matrix, laplacian_matrix, clusters, selected_features):
@@ -85,6 +85,7 @@ def save_synthetic_data_to_file(file_path, X, w, y, adj_matrix, laplacian_matrix
     print("synthetic data saved to the file", file_path)
 
 def generate_graph(d, k, h, theta, connected=False, visualize=True, random=True):
+    correlated_pairs = []
     if random:
         selected_features = np.random.choice(d, k, replace=False)
         
@@ -147,55 +148,110 @@ def generate_graph(d, k, h, theta, connected=False, visualize=True, random=True)
         degree_matrix = sp.diags(np.ravel(adj_matrix.sum(axis=1)))
         laplacian_matrix = degree_matrix - adj_matrix
     else:
-        # Create a graph
-        G = nx.Graph()
+        # # Create a graph
+        # G = nx.Graph()
         
-        # Define nodes (0-based indexing)
-        nodes = range(d)
-        G.add_nodes_from(nodes)
+        # # Define nodes (0-based indexing)
+        # nodes = range(d)
+        # G.add_nodes_from(nodes)
         
-        # Add edges for the first cluster (0, 1, 2, 3)
-        G.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 0), (0, 2), (1, 3)])
+        # # Add edges for the first cluster (0, 1, 2, 3)
+        # G.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 0), (0, 2), (1, 3)])
         
-        # Add edges for the second cluster (4, 5, 6)
-        G.add_edges_from([(4, 5), (5, 6), (6, 4)])
+        # # Add edges for the second cluster (4, 5, 6)
+        # G.add_edges_from([(4, 5), (5, 6), (6, 4)])
         
-        # Connect the two clusters with an edge between nodes 3 and 4
-        G.add_edge(3, 4)
+        # # Connect the two clusters with an edge between nodes 3 and 4
+        # G.add_edge(3, 4)
         
-        # Create adjacency matrix
+        # # Create adjacency matrix
+        # adj_matrix = nx.to_scipy_sparse_array(G, format="csr")
+        
+        # # Compute the Laplacian matrix
+        # degree_matrix = sp.diags(np.ravel(adj_matrix.sum(axis=1)))
+        # laplacian_matrix = degree_matrix - adj_matrix
+        
+        # # Define clusters explicitly
+        # clusters = [[0, 1, 2, 3], [4, 5, 6]]
+        
+        # # Define the regression weight vector
+        # w = np.zeros(d)
+        # selected_features = [0, 1, 2, 3]  # Selected features (adjusted for 0-based indexing)
+        # feature_value = 1.0  # Assign the same weight to all selected features
+
+        inter_cluster_prob = 0.005
+        proportion_correlated = 0.2
+
+        all_features = np.arange(d)
+        selected_features = np.arange(k)
+
+        not_selected_features = np.setdiff1d(all_features, selected_features)
+
+        if h != 1:
+            raise ValueError("Only one cluster is supported for the fixed graph structure.")
+        
+        clusters = [selected_features]
+        w = np.zeros(d)
+        for i in range(k):
+            w[i] = 1.0
+
+        # selected features form a complete graph
+        adj_matrix = sp.lil_matrix((d, d))
+        for i in range(k):
+            for j in range(i + 1, k):
+                adj_matrix[i, j] = 1
+                adj_matrix[j, i] = 1
+        
+        # not selected features form a complete graph
+        for i in range(k, d):
+            for j in range(i + 1, d):
+                adj_matrix[i, j] = 1
+                adj_matrix[j, i] = 1
+
+        # connect the two clusters with an edge between a selected feature and a not selected feature
+        # for i in range(k):
+        #     for j in range(k, d):
+        #         if np.random.rand() < inter_cluster_prob:
+        #             adj_matrix[i, j] = 1
+        #             adj_matrix[j, i] = 1
+
+        # we only connect the first selected feature with the last not selected feature
+        adj_matrix[0, d-1] = 1
+        adj_matrix[d-1, 0] = 1
+
+        # form the laplacian matrix
+        G = nx.from_scipy_sparse_array(adj_matrix)
         adj_matrix = nx.to_scipy_sparse_array(G, format="csr")
-        
-        # Compute the Laplacian matrix
         degree_matrix = sp.diags(np.ravel(adj_matrix.sum(axis=1)))
         laplacian_matrix = degree_matrix - adj_matrix
-        
-        # Define clusters explicitly
-        clusters = [[0, 1, 2, 3], [4, 5, 6]]
-        
-        # Define the regression weight vector
-        w = np.zeros(d)
-        selected_features = [0, 1, 2, 3]  # Selected features (adjusted for 0-based indexing)
-        feature_value = 1.0  # Assign the same weight to all selected features
 
+        # correlated pairs
+        print(f"proportion_correlated: {proportion_correlated}")
+        if proportion_correlated > 0:
+            print(f"proportion_correlated: {proportion_correlated}")
+            num_correlated_pairs = int(proportion_correlated * k)
+            # for simplicity, we assume that the correlated pairs from the selected cluster are the first num_correlated_pairs pairs
+            # and the correlated pairs from the not selected cluster are the first num_correlated_pairs pairs
+            for i in range(num_correlated_pairs):
+                correlated_pairs.append((i, i + k))
+                print(f"correlated pair: ({i}, {i + k})")
+
+
+    
             
     # Optional: Visualize the graph with cluster-based colors
     if visualize:
         visualize_graph(G, clusters, selected_features=selected_features)
 
-    print(selected_features)
-    print(clusters)
+    return w, adj_matrix, laplacian_matrix, clusters, selected_features, correlated_pairs
 
-    return w, adj_matrix, laplacian_matrix, clusters, selected_features
-
-def generate_X(n, d, correlated=False):
-    if correlated:
-        # generate a matrix with correlated columns first one and the sixth one are correlated
-        X = np.random.normal(0, 1, (n, d))
-        # X[:, 5] = X[:, 0] + np.random.normal(0, 0.1, n)
-        X[:, 5] = X[:, 0]
+def generate_X(n, d, correlated_pairs=None):
+    X = np.random.normal(0, 1, (n, d))
+    if correlated_pairs:
+        for (i, j) in correlated_pairs:
+            X[:, j] = X[:, i] + np.random.normal(0, 0.1, n)
         return X
-    return np.random.normal(0, 1, (n, d))
+    return X
 
 def generate_Y(X, w, gamma):
     n, d = X.shape
@@ -210,10 +266,9 @@ def generate_Y(X, w, gamma):
 
 def generate_synthetic_data_with_graph(n, d, k, h, theta, gamma, visualize=False, connected=False, random=True, correlated=False):
     # Step 1: Generate the design matrix X with i.i.d. N(0, 1) entries
-    X = generate_X(n, d, correlated=correlated)
-    
-    w, adj_matrix, laplacian_matrix, clusters, selected_features = generate_graph(d, k, h, theta, connected, visualize, random)
-
+ 
+    w, adj_matrix, laplacian_matrix, clusters, selected_features, correlated_pairs = generate_graph(d, k, h, theta, connected, visualize, random)
+    X = generate_X(n, d, correlated_pairs)
     y = generate_Y(X, w, gamma)
 
     

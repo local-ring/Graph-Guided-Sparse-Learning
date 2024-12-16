@@ -24,15 +24,15 @@ def L0Obj(X, m, y, L, pho, mu, d, h):
     # print(f"SpDiag: {SpDiag.toarray()[-1][-1]}")
     M = inv((1/pho) * X @ SpDiag @ X.T + np.eye(n))
     # generate the correspodning assignment matrix
-    assignemen_matrix = m.reshape(d,h)
+    assignment_matrix = m.reshape(d,h)
     # print(f"assignemen_matrix: {assignemen_matrix}")
     # print(f"m: {m}")
     # generate the graph penalty term
-    graph_penalty = mu * np.trace(assignemen_matrix.T @ L @ assignemen_matrix)
+    graph_penalty = mu * np.trace(assignment_matrix.T @ L @ assignment_matrix)
     f = y.T @ M @ y + graph_penalty # AL: why conjuate transpose? i remove the .conj()
 
     A_grad = -(1/pho) * ((X.conj().T @ M @ y)**2) # the gradient of the first term
-    B_grad = 2 * mu * L @ assignemen_matrix # the gradient of the second term
+    B_grad = 2 * mu * L @ assignment_matrix # the gradient of the second term
 
     g = A_grad + B_grad.flatten()
 
