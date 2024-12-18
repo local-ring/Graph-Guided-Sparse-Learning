@@ -14,15 +14,18 @@ import random
 tStart = time.process_time()
 # Generate synthetic data
 # Parameters
-n = 600  # Number of samples
-d = 200   # Number of features
+n = 1000  # Number of samples
+d = 500   # Number of features
 k = 20   # Number of non-zero features
-h = 4    # Number of clusters
+h_total = 5    # number of cluster in the graph
+h = 2 # number of cluster that are selected i.e. related to the dependent variable
 nVars = d*h # Number of Boolean variables in m
-theta = 1  # Probability of connection within clusters
+inter_cluster = 0.9 # probability of inter-cluster edges in graph
+outer_cluster = 0.05 # probability of outer-cluster edges in graph
 gamma = 1.5  # Noise standard deviation
 pho = np.sqrt(n)
 mu = 1
+
 SNR = 1
 
 fixed_seed = 0
@@ -33,19 +36,19 @@ random_graph = True
 visualize = True
 # read a fixed synthetic data from a file if fixed_seed is True because we want to compare the results with the original results
 if fixed_seed:
-    file_path = "synthetic_data.npz"
+    file_path = "data/synthetic_data.npz"
     X, w_true, y, adj_matrix, L, clusters_true, selected_features_true = read_synthetic_data_from_file(file_path)
 else:
     # Generate synthetic data
-    X, w_true, y, adj_matrix, L, clusters_true, selected_features_true = generate_synthetic_data_with_graph(n, d, k, h, theta, gamma, visualize=visualize, connected=connected, correlated=correlated, random=random_graph)
-    clusters_true = [np.array(cluster) for cluster in clusters_true]  # Ensure clusters are arrays
-    selected_features_true = np.array(selected_features_true)  # Ensure selected_features is an array
-    print("selected_features_true", selected_features_true)
-    print("clusters_true", clusters_true)
-    # print("Type of clusters:", type(clusters_true))
-    # print("Contents of clusters:", clusters_true)
-    # print("Type of each cluster:", [type(cluster) for cluster in clusters_true])
-    # print("Lengths of clusters:", [len(cluster) for cluster in clusters_true])
+    X, w_true, y, adj_matrix, L, clusters_true, k= generate_synthetic_data_with_graph(n, d, 
+                                                                                      h_total, h, 
+                                                                                      inter_cluster=inter_cluster, 
+                                                                                      outer_cluster=outer_cluster, 
+                                                                                      gamma=gamma,
+                                                                                      visualize=visualize, 
+                                                                                      connected=connected, 
+                                                                                      correlated=correlated, 
+                                                                                      random=random_graph)
     # Save the synthetic data to a file
     file_path = "synthetic_data.npz"
     # save_synthetic_data_to_file(file_path, X, w_true, y, adj_matrix, L, clusters_true, selected_features_true)
@@ -69,7 +72,7 @@ print("Execution time (generating the data):", tEnd)
 m_initial = np.ones((nVars, 1)) * (k / nVars)
 # m_initial[0:k] = 1
 
-# Set up Objective Function L0Obj(X, m, y, L, rho, mu, d, h)::
+# Set up Objective Function L0Obj(X, m, y, L, rho, mu, d, h, n)::
 funObj = lambda m: L0Obj(X_hat, m, y, L, pho, mu, d, h, n)
 
 # Set up Simplex Projection Function ProjOperator_Gurobi(m, k, d, h):
@@ -79,11 +82,11 @@ tEnd = time.process_time() - tStart
 print("Execution time(Before):", tEnd)
 print("start!!!")
 # Solve with PQN
-options = {'maxIter': 100, 'verbose': 2}
+options = {'maxIter': 100, 'verbose': 0}
 tStart = time.process_time()
 mout, obj, _ = minConF_PQN(funObj, m_initial, funProj, options)
-print(f"uout: {mout}")
-print(f"m_sum: {np.sum(mout)}, m_featuress_sum: {np.sum(mout.reshape(d, h), axis=1)}, m_clusters_sum: {np.sum(mout.reshape(d, h), axis=0)}")
+# print(f"uout: {mout}")
+# print(f"m_sum: {np.sum(mout)}, m_featuress_sum: {np.sum(mout.reshape(d, h), axis=1)}, m_clusters_sum: {np.sum(mout.reshape(d, h), axis=0)}")
 # save the result to a file 
 sio.savemat('mout.mat', {'mout': mout})
 tEnd = time.process_time() - tStart
@@ -142,6 +145,7 @@ else:
 tEnd = time.process_time() - tStart
 
 # find the intersection of the selected features and clusters
+selected_features_true = np.arange(k)
 C = np.intersect1d(selected_features_true, selected_features_predict)
 
 # Find the intersection
@@ -162,7 +166,7 @@ selected_features_predict.sort()
 selected_features_true.sort()
 print("Accuracy of PQN:", AccPQN)
 # print("clusters_predict", clusters_predict_without_order)
-print("clusters_true", clusters_true)
+print("clusters_true", clusters_true[:h])
 print("clusters_predict", clusters_predict) 
 print("selected_features_predict", selected_features_predict)
 print("selected_features_true", selected_features_true)

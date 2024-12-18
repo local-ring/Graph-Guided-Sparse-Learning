@@ -84,109 +84,111 @@ def save_synthetic_data_to_file(file_path, X, w, y, adj_matrix, laplacian_matrix
 
     print("synthetic data saved to the file", file_path)
 
-def generate_graph(d, k, h, theta, connected=False, visualize=True, random=True):
+
+def random_partition(d, h_total):
+    """
+    Randomly partition `d` into `h_total` parts, ensuring the sum equals `d`.
+    
+    Parameters:
+    - d (int): Total number to partition.
+    - h_total (int): Number of parts/clusters.
+
+    Returns:
+    - list: A list of breakpoints that divide the range [0, d] into `h_total` parts.
+    """
+    if d < h_total:
+        raise ValueError("The number of clusters exceeds the total number.") 
+    # Generate `h_total - 1` random breakpoints in the range [0, d]
+    breakpoints = sorted(np.random.choice(range(1, d), h_total - 1, replace=False))
+    
+    # Add the boundaries (0 and d) to the breakpoints
+    breakpoints = [0] + breakpoints + [d] # each interval is [breakpoints[i], breakpoints[i+1]) including the left boundary but excluding the right boundary
+
+    for i in range(h_total):
+        print(f"cluster {i} contains features from {breakpoints[i]} to {breakpoints[i + 1] - 1}, with size {breakpoints[i + 1] - breakpoints[i]}")
+    
+    return breakpoints
+
+def generate_random_graph(d, h_total, h, inter_cluster_prob, outer_cluster_prob, connected=False, visualize=True):
+    # by symmetry, wlog, the first d_1 features are in the first cluster, the next d_2 features are in the second cluster, and so on
+    # we need to make sure that d_1 + d_2 + ... + d_h = d, so we can implement this by random partitioning of d into h_total parts
+
+    # randomly partition d into h_total parts
+    breakpoints = random_partition(d, h_total)
+    clusters = [range(breakpoints[i], breakpoints[i + 1]) for i in range(h_total)]
+
+    # again, without loss of generality, we can assume that the first h clusters are the selected clusters
+    selected_clusters = clusters[:h]
+    k = selected_clusters[-1][-1]   # the last feature in the last selected cluster
+    print("number of selected/non-zero features:", k)
+
+    # create the adjacency matrix
+    adj_matrix = sp.lil_matrix((d, d), dtype=int)
+    
+    # generate the inter-cluster part of the adjacency matrix
+    for cluster in clusters:
+        size = len(cluster)
+        block = (np.random.rand(size, size) < inter_cluster_prob).astype(int)
+        np.fill_diagonal(block, 0) # no self-loops
+        block = np.triu(block) + np.triu(block, 1).T # make the matrix symmetric
+        for i, node_i in enumerate(cluster):
+            for j, node_j in enumerate(cluster):
+                adj_matrix[node_i, node_j] = block[i, j]
+
+    # generate the outer-cluster part of the adjacency matrix
+    for i in range(h_total):
+        for j in range(i + 1, h_total):
+            cluster_i = clusters[i]
+            cluster_j = clusters[j]
+            block = (np.random.rand(len(cluster_i), len(cluster_j)) < outer_cluster_prob).astype(int)
+            for m, node_i in enumerate(cluster_i):
+                for n, node_j in enumerate(cluster_j):
+                    adj_matrix[node_i, node_j] = block[m, n]
+                    adj_matrix[node_j, node_i] = block[m, n]
+
+    # TODO: ensure the graph is connected
+
+    if visualize:
+        plt.figure(figsize=(8, 8))
+        plt.spy(adj_matrix, markersize=1)
+        plt.title("Generated Adjacency Matrix")
+        plt.axis("off")
+        plt.show()
+
+    G = nx.from_scipy_sparse_array(adj_matrix)  
+    print("Number of connected components:", nx.number_connected_components(G))
+
+    return adj_matrix, clusters, k
+
+def generate_weight(d, selected_clusters, k):
+    """
+    we need to find a different way to assign the value of the weights because we want different weights for each cluster, what i am concerned is that
+    if they only have two values, it's highly likely that the weights will be the same for most of the clusters, which will confuse the model
+    """
+    w = np.zeros(d)
+    for i, cluster in enumerate(selected_clusters):
+        sign = np.random.choice([-1, 1])
+        # feature_weight = np.random.normal(1/np.sqrt(k), 1) * sign
+        feature_weight = 1.0 * sign
+        for feature in cluster:
+            w[feature] = feature_weight
+        print(f"cluster {i}: {cluster}, feature_weight: {feature_weight}")
+    return w
+
+def generate_graph(d, h_total, h, inter_cluster=0.9, outer_cluster=0.05, connected=False, visualize=True, random=True):
     correlated_pairs = []
     if random:
-        selected_features = np.random.choice(d, k, replace=False)
-        
-        # Step 3: Divide the selected features into h clusters
-        cluster_size = k // h  # Assume k is divisible by h for simplicity TODO: imbalanced clusters
-        clusters = [selected_features[i * cluster_size : (i + 1) * cluster_size] for i in range(h)]
-        
-        # Step 4: Construct the regression weight vector w
-        w = np.zeros(d)
-        for cluster in clusters:
-            """
-            we need to find a different way to assign the value of the weights because we want different weights for each cluster, what i am concerned is that
-            if they only have two values, it's highly likely that the weights will be the same for most of the clusters, which will confuse the model
-            """
-            sign = np.random.choice([-1, 1])
-            feature_weight = np.random.normal(1/np.sqrt(k), 1) * sign
-            for feature in cluster:
-                # w[feature] = sign
-                w[feature] = feature_weight
+        adj_matrix, clusters, k = generate_random_graph(d, h_total, h, 
+                                                        inter_cluster, 
+                                                        outer_cluster, 
+                                                        connected=connected, 
+                                                        visualize=visualize)
 
-            print(f"cluster: {cluster}, feature_weight: {feature_weight}")
-        
-        # Step 5: Create a sparse adjacency matrix for the graph
-        adj_matrix = sp.lil_matrix((d, d))  # Start with a sparse matrix in List of Lists format
-        
-        for i in range(d):
-            for j in range(i + 1, d):
-                # Check if i and j are in the same cluster
-                same_cluster = any(i in cluster and j in cluster for cluster in clusters)
-                prob = theta if same_cluster else 0.05
-                
-                if np.random.rand() < prob:
-                    adj_matrix[i, j] = 1
-                    adj_matrix[j, i] = 1  # Ensure symmetry
-        
-        # Ensure the graph is connected
-        G = nx.from_scipy_sparse_array(adj_matrix)  
-        if not nx.is_connected(G):
-            print("Number of connected components:", nx.number_connected_components(G))
-            if connected:
-                # Connect the isolated components 
-                components = list(nx.connected_components(G))
-                for i in range(len(components)):
-                    isolated_node = next(iter(components[i]))  # Pick a node from the isolated component
-
-                    # Select a random cluster and a random node from that cluster
-                    random_cluster = random.choice(clusters)  # Select a random cluster
-                    random_node = random.choice(random_cluster)  # Pick a random node from the selected cluster
-                    
-                    # Add an edge to connect the isolated component to the selected node
-                    G.add_edge(isolated_node, random_node)
-
-                # check if the graph is connected after connecting components
-                try:
-                    assert nx.is_connected(G)
-                except AssertionError:
-                    print("The graph is not connected")
-                    
-        # Update the adjacency matrix after connecting components
-        adj_matrix = nx.to_scipy_sparse_array(G, format="csr")
-        
-        # Step 6: Compute the Laplacian matrix as a sparse matrix
-        # degree_matrix = sp.diags(np.ravel(adj_matrix.sum(axis=1)))
-        # laplacian_matrix = degree_matrix - adj_matrix
-
-        # normalized laplacian matrix
-        degree_matrix_sqrt_inv = sp.diags(np.ravel(1 / np.sqrt(adj_matrix.sum(axis=1))))
-        laplacian_matrix = sp.eye(d) - degree_matrix_sqrt_inv @ adj_matrix @ degree_matrix_sqrt_inv
+        # # normalized laplacian matrix
+        # degree_matrix_sqrt_inv = sp.diags(np.ravel(1 / np.sqrt(adj_matrix.sum(axis=1))))
+        # laplacian_matrix = sp.eye(d) - degree_matrix_sqrt_inv @ adj_matrix @ degree_matrix_sqrt_inv
 
     else:
-        # # Create a graph
-        # G = nx.Graph()
-        
-        # # Define nodes (0-based indexing)
-        # nodes = range(d)
-        # G.add_nodes_from(nodes)
-        
-        # # Add edges for the first cluster (0, 1, 2, 3)
-        # G.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 0), (0, 2), (1, 3)])
-        
-        # # Add edges for the second cluster (4, 5, 6)
-        # G.add_edges_from([(4, 5), (5, 6), (6, 4)])
-        
-        # # Connect the two clusters with an edge between nodes 3 and 4
-        # G.add_edge(3, 4)
-        
-        # # Create adjacency matrix
-        # adj_matrix = nx.to_scipy_sparse_array(G, format="csr")
-        
-        # # Compute the Laplacian matrix
-        # degree_matrix = sp.diags(np.ravel(adj_matrix.sum(axis=1)))
-        # laplacian_matrix = degree_matrix - adj_matrix
-        
-        # # Define clusters explicitly
-        # clusters = [[0, 1, 2, 3], [4, 5, 6]]
-        
-        # # Define the regression weight vector
-        # w = np.zeros(d)
-        # selected_features = [0, 1, 2, 3]  # Selected features (adjusted for 0-based indexing)
-        # feature_value = 1.0  # Assign the same weight to all selected features
-
         inter_cluster_prob = 0.05
         proportion_correlated = 0.2
 
@@ -245,12 +247,17 @@ def generate_graph(d, k, h, theta, connected=False, visualize=True, random=True)
                 correlated_pairs.append((i, i + k))
                 print(f"correlated pair: ({i}, {i + k})")
 
+
+    adj_matrix = adj_matrix.tocsr() # convert to csr format for faster matrix-vector multiplication
+    degree_matrix = sp.diags(np.ravel(adj_matrix.sum(axis=1)))  
+    laplacian_matrix = degree_matrix - adj_matrix
+
             
     # Optional: Visualize the graph with cluster-based colors
-    if visualize:
-        visualize_graph(G, clusters, selected_features=selected_features)
+    # if visualize:
+    #     visualize_graph(G, clusters, selected_features=selected_features)
 
-    return w, adj_matrix, laplacian_matrix, clusters, selected_features, correlated_pairs
+    return adj_matrix, laplacian_matrix, clusters, k, correlated_pairs
 
 def generate_X(n, d, correlated_pairs=None):
     X = np.random.normal(0, 1, (n, d))
@@ -271,11 +278,18 @@ def generate_Y(X, w, gamma):
     print("SNR:", snr)
     return y
 
-def generate_synthetic_data_with_graph(n, d, k, h, theta, gamma, visualize=False, connected=False, random=True, correlated=False):
-    # Step 1: Generate the design matrix X with i.i.d. N(0, 1) entries
- 
-    w, adj_matrix, laplacian_matrix, clusters, selected_features, correlated_pairs = generate_graph(d, k, h, theta, connected, visualize, random)
-    X = generate_X(n, d, correlated_pairs)
+def generate_synthetic_data_with_graph(n, d, h_total, h, inter_cluster, outer_cluster, gamma, visualize=False, connected=False, random=True, correlated=False):
+
+    adj_matrix, laplacian_matrix, clusters, k, _ = generate_graph(d, h_total, h, 
+                                                                  inter_cluster, 
+                                                                  outer_cluster, 
+                                                                  connected=connected, 
+                                                                  visualize=visualize, 
+                                                                  random=random)
+    selected_features = clusters[:h]
+    w = generate_weight(d, selected_features, k)
+    
+    X = generate_X(n, d)
     y = generate_Y(X, w, gamma)
 
     
@@ -285,4 +299,4 @@ def generate_synthetic_data_with_graph(n, d, k, h, theta, gamma, visualize=False
     # plt.title("Generated Graph Structure")
     # plt.show()
     
-    return X, w, y, adj_matrix, laplacian_matrix, clusters, selected_features
+    return X, w, y, adj_matrix, laplacian_matrix, clusters, k

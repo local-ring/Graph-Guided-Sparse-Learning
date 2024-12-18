@@ -24,6 +24,9 @@ def ProjOperator_Gurobi(m, k, d, h):
         Cluster[j, j::h] = 1
     Cluster_b = np.ones((h, 1))
 
+    Aa = np.ones((1, d * h))  # Sparsity constraint matrix
+    bb = np.array([k])        # Sparsity constraint vector
+
     # Combine all constraints
     C = np.vstack([A, B])
     Cb = np.vstack([b, c])
@@ -42,7 +45,9 @@ def ProjOperator_Gurobi(m, k, d, h):
 
             # Add constraints
             model.addConstr(C @ x <= Cb.flatten(), name="GeneralConstraints")
-            # model.addConstr(Cluster @ x >= Cluster_b.flatten(), name="ClusterCoverage")
+            model.addConstr(Cluster @ x >= Cluster_b.flatten(), name="ClusterCoverage")
+            model.addConstr(Aa @ x == bb.flatten(), name="Sparsity")
+            
 
             # Optimize
             model.optimize()
