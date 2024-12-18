@@ -17,19 +17,19 @@ tStart = time.process_time()
 n = 600  # Number of samples
 d = 200   # Number of features
 k = 20   # Number of non-zero features
-h = 1    # Number of clusters
+h = 4    # Number of clusters
 nVars = d*h # Number of Boolean variables in m
 theta = 1  # Probability of connection within clusters
 gamma = 1.5  # Noise standard deviation
-pho = 1 # divide by sample size 
+pho = np.sqrt(n)
 mu = 1
 SNR = 1
 
 fixed_seed = 0
-random_rounding = 1
+random_rounding = 0
 connected = False
 correlated = True
-random_graph = False
+random_graph = True
 visualize = True
 # read a fixed synthetic data from a file if fixed_seed is True because we want to compare the results with the original results
 if fixed_seed:
@@ -65,8 +65,9 @@ print("Execution time (generating the data):", tEnd)
 # m_initial = np.ones((nVars, 1)) * (1 / nVars)
 # m_initial = np.random.normal(0, 1, (nVars, 1))
 # m_initial = np.random.normal(0, 1/nVars, (nVars, 1))
-m_initial = np.zeros((nVars, 1))
-m_initial[0:k] = 1
+# m_initial = np.zeros((nVars, 1))
+m_initial = np.ones((nVars, 1)) * (k / nVars)
+# m_initial[0:k] = 1
 
 # Set up Objective Function L0Obj(X, m, y, L, rho, mu, d, h)::
 funObj = lambda m: L0Obj(X_hat, m, y, L, pho, mu, d, h, n)
@@ -82,6 +83,7 @@ options = {'maxIter': 100, 'verbose': 2}
 tStart = time.process_time()
 mout, obj, _ = minConF_PQN(funObj, m_initial, funProj, options)
 print(f"uout: {mout}")
+print(f"m_sum: {np.sum(mout)}, m_featuress_sum: {np.sum(mout.reshape(d, h), axis=1)}, m_clusters_sum: {np.sum(mout.reshape(d, h), axis=0)}")
 # save the result to a file 
 sio.savemat('mout.mat', {'mout': mout})
 tEnd = time.process_time() - tStart
@@ -131,13 +133,11 @@ else:
     feature_prob = np.sum(m_grouped, axis=1)
     feature_rank = np.argsort(np.abs(feature_prob))[::-1]
     selected_features_predict = feature_rank[:k]
-    clusters_predict = {}
+    clusters_predict = {i: [] for i in range(h)}
     for i in selected_features_predict:
         cluster = np.argmax(m_grouped[i])
-        if cluster in clusters_predict:
-            clusters_predict[cluster].append(i)
-        else:
-            clusters_predict[cluster] = [i]
+        clusters_predict[cluster].append(i)
+
 
 tEnd = time.process_time() - tStart
 
@@ -149,19 +149,20 @@ AccPQN = len(C) / k
 
 # sort the dict for clear comparison
 print("clusters_predict", clusters_predict)
-clusters_predict_without_order = [clusters_predict[i] for i in range(h)] if clusters_predict else []
-for cluster in clusters_predict_without_order:
-    cluster.sort()
-clusters_predict_without_order.sort(key=lambda x: x[0])
-for cluster in clusters_true:
-    cluster.sort()
-clusters_true.sort(key=lambda x: x[0])
+# clusters_predict_without_order = [clusters_predict[i] for i in range(h)] if clusters_predict else []
+# for cluster in clusters_predict_without_order:
+#     cluster.sort()
+# clusters_predict_without_order.sort(key=lambda x: x[0])
+# for cluster in clusters_true:
+#     cluster.sort()
+# clusters_true.sort(key=lambda x: x[0])
 
 print("Execution time:", tEnd)
 selected_features_predict.sort()
 selected_features_true.sort()
 print("Accuracy of PQN:", AccPQN)
-print("clusters_predict", clusters_predict_without_order)
+# print("clusters_predict", clusters_predict_without_order)
 print("clusters_true", clusters_true)
+print("clusters_predict", clusters_predict) 
 print("selected_features_predict", selected_features_predict)
 print("selected_features_true", selected_features_true)

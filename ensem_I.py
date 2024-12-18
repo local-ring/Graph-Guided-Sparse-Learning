@@ -135,17 +135,17 @@ def experiment(n, d, k, h, theta, gamma, pho, mu, fixed_seed, random_rounding, c
 
     # sort the dict for clear comparison
     print("clusters_predict", clusters_predict)
-    clusters_predict_without_order = [clusters_predict[i] for i in range(h)]
-    for cluster in clusters_predict_without_order:
-        cluster.sort()
-    clusters_predict_without_order.sort(key=lambda x: x[0])
-    for cluster in clusters_true:
-        cluster.sort()
-    clusters_true.sort(key=lambda x: x[0])
+    # clusters_predict_without_order = [clusters_predict[i] for i in range(h)]
+    # for cluster in clusters_predict_without_order:
+    #     cluster.sort()
+    # clusters_predict_without_order.sort(key=lambda x: x[0])
+    # for cluster in clusters_true:
+    #     cluster.sort()
+    # clusters_true.sort(key=lambda x: x[0])
 
-    print("Execution time:", tEnd)
-    selected_features_predict.sort()
-    selected_features_true.sort()
+    # print("Execution time:", tEnd)
+    # selected_features_predict.sort()
+    # selected_features_true.sort()
     print("Accuracy of PQN:", AccPQN)
     # print("clusters_true", clusters_true)
     # print("clusters_predict", clusters_predict_without_order)

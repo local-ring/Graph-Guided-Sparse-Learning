@@ -101,9 +101,12 @@ def generate_graph(d, k, h, theta, connected=False, visualize=True, random=True)
             if they only have two values, it's highly likely that the weights will be the same for most of the clusters, which will confuse the model
             """
             sign = np.random.choice([-1, 1])
-            feature_value = np.random.normal(1/np.sqrt(k), 1) * sign
+            feature_weight = np.random.normal(1/np.sqrt(k), 1) * sign
             for feature in cluster:
-                w[feature] = feature_value
+                # w[feature] = sign
+                w[feature] = feature_weight
+
+            print(f"cluster: {cluster}, feature_weight: {feature_weight}")
         
         # Step 5: Create a sparse adjacency matrix for the graph
         adj_matrix = sp.lil_matrix((d, d))  # Start with a sparse matrix in List of Lists format
@@ -112,7 +115,7 @@ def generate_graph(d, k, h, theta, connected=False, visualize=True, random=True)
             for j in range(i + 1, d):
                 # Check if i and j are in the same cluster
                 same_cluster = any(i in cluster and j in cluster for cluster in clusters)
-                prob = theta if same_cluster else (1 - theta)
+                prob = theta if same_cluster else 0.05
                 
                 if np.random.rand() < prob:
                     adj_matrix[i, j] = 1
@@ -145,8 +148,13 @@ def generate_graph(d, k, h, theta, connected=False, visualize=True, random=True)
         adj_matrix = nx.to_scipy_sparse_array(G, format="csr")
         
         # Step 6: Compute the Laplacian matrix as a sparse matrix
-        degree_matrix = sp.diags(np.ravel(adj_matrix.sum(axis=1)))
-        laplacian_matrix = degree_matrix - adj_matrix
+        # degree_matrix = sp.diags(np.ravel(adj_matrix.sum(axis=1)))
+        # laplacian_matrix = degree_matrix - adj_matrix
+
+        # normalized laplacian matrix
+        degree_matrix_sqrt_inv = sp.diags(np.ravel(1 / np.sqrt(adj_matrix.sum(axis=1))))
+        laplacian_matrix = sp.eye(d) - degree_matrix_sqrt_inv @ adj_matrix @ degree_matrix_sqrt_inv
+
     else:
         # # Create a graph
         # G = nx.Graph()

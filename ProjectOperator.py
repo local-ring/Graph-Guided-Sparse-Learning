@@ -2,65 +2,57 @@ from gurobipy import Model, Env
 import numpy as np
 def ProjOperator_Gurobi(m, k, d, h):
     """
-    This function we return a projection operator that projects the input vector m onto the simplex
+    This function projects the input vector m onto the simplex while satisfying constraints.
     Parameters:
-    - m: input vector (maybe in it matrix form -- no)
-    - k: sparsity level
+    - m: input vector
+    - k: sparsity level (number of non-zero entries allowed)
     - d: number of features
-    - h: number of pre-defined clusters, which can be read from the input vector m (omit for now, since we pass the vector form, so we cannot know d and h directly)
+    - h: number of clusters
     """
-    # print("m", m.shape)
-    # Create constraint matrix A for the sparsity level
-    A = np.ones((1, d*h))
-    b = np.array([k])
+    A = np.ones((1, d * h))  # Sparsity constraint matrix
+    b = np.array([k])        # Sparsity constraint vector
 
-    # Create constraint matrix B for each feature belongs to at most one cluster
-    # Initialize B as an empty matrix with shape (0, d*h)
-    B = np.empty((0, d*h))
-
-    # Initialize c as an empty array
-    c = np.empty((0, 1))
-
+    # Feature assignment constraints
+    B = np.zeros((d, d * h))
     for i in range(d):
-        # Create a new row of zeros with shape (1, d*h)
-        B_row = np.zeros(d*h)
-        # Set a specific element in the row to 1
-        B_row[i*h: (i+1)*h] = 1
+        B[i, i * h:(i + 1) * h] = 1
+    c = np.ones((d, 1))
 
-        # Stack the new row onto B
-        B = np.vstack([B, B_row]) 
+    # Cluster coverage constraints
+    Cluster = np.zeros((h, d * h))
+    for j in range(h):
+        Cluster[j, j::h] = 1
+    Cluster_b = np.ones((h, 1))
 
-        # Append 1 to vector c
-        c = np.vstack([c, [[1]]])
-
-    # Concatenate A and B to create the constraint matrix
+    # Combine all constraints
     C = np.vstack([A, B])
     Cb = np.vstack([b, c])
-    # print("C", C.shape, C)
-    # print("Cb", Cb.shape, Cb)
 
     with Env(empty=True) as env:
-        env.setParam('OutputFlag', 0) # I want to suppress the annoying license message
+        env.setParam('OutputFlag', 0)  # Suppress output
         env.start()
         with Model(env=env) as model:
-            # Set Gurobi parameters
-            model.setParam('OutputFlag', 0)
-            model.setParam('IterationLimit', 500)
-
             # Add variables
-            x = model.addMVar(d*h, lb=0.0, ub=1.0)
+            x = model.addMVar(d * h, lb=0.0, ub=1.0)
 
-            # Set objective function
-            Q = np.eye(d*h)
-            f = -2*m.flatten()
-            # print("x", x.shape)
-            # print("f", f.shape)
-            model.setObjective(x@Q@x + x@f)
-            model.addConstr(C @ x <= Cb)
+            # Objective function (quadratic)
+            Q = np.eye(d * h)
+            f = -2 * m.flatten()
+            model.setObjective(x @ Q @ x + f @ x, sense=1)  # Minimize
 
-            # Optimize model
+            # Add constraints
+            model.addConstr(C @ x <= Cb.flatten(), name="GeneralConstraints")
+            # model.addConstr(Cluster @ x >= Cluster_b.flatten(), name="ClusterCoverage")
+
+            # Optimize
             model.optimize()
 
-            # Get the results
-            x = x.x
-    return x
+            # Debugging infeasibility
+            if model.Status == 3:  # Infeasible
+                print("Model is infeasible. Writing infeasibility report...")
+                model.computeIIS()
+                model.write("infeasibility_report.ilp")
+                return None
+
+            # Return solution
+            return x.x
