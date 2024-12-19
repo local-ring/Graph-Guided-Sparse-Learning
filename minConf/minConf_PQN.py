@@ -186,17 +186,20 @@ def minConF_PQN(funObj, x, funProj, options=None):
             t = min(1, 1 / np.sum(np.abs(g)))
 
         # Evaluate the Objective and Gradient at the Initial Step
-        if t==1:
-            x_new = p
-        else:
-            x_new = x + t * d
+        # if t==1:
+        #     x_new = p
+        # else:
+        #     x_new = x + t * d
 
+
+        x_new = x + t * d   
         f_new, g_new = funObj(x_new)
         funEvals = funEvals + 1
 
         # Backtracking Line Search
         f_old = f
-        while f_new.item() > (f + suffDec * g.conj().T @ (x_new - x)).item() or not isLegal(f_new):
+        # while f_new.item() > (f + suffDec * g.conj().T @ (x_new - x)).item() or not isLegal(f_new):
+        while f_new.item() > (f + suffDec * t * gtd) or (not isLegal(f_new)) or (not isLegal(g_new)):
             temp = t
 
             # Backtrack to next trial value
@@ -220,7 +223,7 @@ def minConF_PQN(funObj, x, funProj, options=None):
                 t = temp * 0.6
 
             # Check whether step has become too small
-            if np.sum(np.abs(t * d)) < progTol or t == 0:
+            if np.sum(np.abs(t * d)) < optTol or t == 0:
                 if verbose == 3:
                     print('Line Search failed')
                 t = 0
@@ -255,14 +258,14 @@ def minConF_PQN(funObj, x, funProj, options=None):
             print('First-Order Optimality Conditions Below optTol')
             break
 
-        if np.max(np.abs(t * d)) < progTol:
+        if np.sum(np.abs(t * d)) < optTol:
             if verbose >= 1:
-                print('Step size below progTol')
+                print('Step size below optTol')
             break
 
         if np.abs(f - f_old) < progTol:
             if verbose >= 1:
-                print('Function value changing by less than progTol')
+                print('Function value changing by less than optTol')
             break
 
         if funEvals*funEvalMultiplier > maxIter:

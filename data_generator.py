@@ -185,8 +185,8 @@ def generate_graph(d, h_total, h, inter_cluster=0.9, outer_cluster=0.05, connect
                                                         visualize=visualize)
 
         # # normalized laplacian matrix
-        # degree_matrix_sqrt_inv = sp.diags(np.ravel(1 / np.sqrt(adj_matrix.sum(axis=1))))
-        # laplacian_matrix = sp.eye(d) - degree_matrix_sqrt_inv @ adj_matrix @ degree_matrix_sqrt_inv
+        degree_matrix_sqrt_inv = sp.diags(np.ravel(1 / np.sqrt(adj_matrix.sum(axis=1))))
+        laplacian_matrix = sp.eye(d) - degree_matrix_sqrt_inv @ adj_matrix @ degree_matrix_sqrt_inv
 
     else:
         inter_cluster_prob = 0.05
@@ -248,9 +248,9 @@ def generate_graph(d, h_total, h, inter_cluster=0.9, outer_cluster=0.05, connect
                 print(f"correlated pair: ({i}, {i + k})")
 
 
-    adj_matrix = adj_matrix.tocsr() # convert to csr format for faster matrix-vector multiplication
-    degree_matrix = sp.diags(np.ravel(adj_matrix.sum(axis=1)))  
-    laplacian_matrix = degree_matrix - adj_matrix
+    # adj_matrix = adj_matrix.tocsr() # convert to csr format for faster matrix-vector multiplication
+    # degree_matrix = sp.diags(np.ravel(adj_matrix.sum(axis=1)))  
+    # laplacian_matrix = degree_matrix - adj_matrix
 
             
     # Optional: Visualize the graph with cluster-based colors

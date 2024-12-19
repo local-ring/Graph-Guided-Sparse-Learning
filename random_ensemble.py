@@ -4,7 +4,7 @@ from scipy.linalg import toeplitz
 from scipy.stats import multivariate_normal
 import time
 
-from L0Obj import L0Obj
+from L0Obj import L0Obj, L0Obj_separate
 from data_generator import generate_synthetic_data_with_graph, read_synthetic_data_from_file, save_synthetic_data_to_file
 from ProjectOperator import ProjOperator_Gurobi
 from minConf.minConf_PQN import minConF_PQN
@@ -16,15 +16,15 @@ tStart = time.process_time()
 # Parameters
 n = 1000  # Number of samples
 d = 500   # Number of features
-k = 20   # Number of non-zero features
-h_total = 5    # number of cluster in the graph
-h = 2 # number of cluster that are selected i.e. related to the dependent variable
+k = 20  # Number of non-zero features
+h_total = 40    # number of cluster in the graph
+h = 5 # number of cluster that are selected i.e. related to the dependent variable
 nVars = d*h # Number of Boolean variables in m
-inter_cluster = 0.9 # probability of inter-cluster edges in graph
-outer_cluster = 0.05 # probability of outer-cluster edges in graph
+inter_cluster = 1 # probability of inter-cluster edges in graph
+outer_cluster = 0 # probability of outer-cluster edges in graph
 gamma = 1.5  # Noise standard deviation
 pho = np.sqrt(n)
-mu = 1
+mu = 0.1
 
 SNR = 1
 
@@ -40,7 +40,7 @@ if fixed_seed:
     X, w_true, y, adj_matrix, L, clusters_true, selected_features_true = read_synthetic_data_from_file(file_path)
 else:
     # Generate synthetic data
-    X, w_true, y, adj_matrix, L, clusters_true, k= generate_synthetic_data_with_graph(n, d, 
+    X, w_true, y, adj_matrix, L, clusters_true, k = generate_synthetic_data_with_graph(n, d, 
                                                                                       h_total, h, 
                                                                                       inter_cluster=inter_cluster, 
                                                                                       outer_cluster=outer_cluster, 
@@ -55,7 +55,10 @@ else:
 
     # print("selected_features_true", selected_features_true)
     # print("clusters_true", clusters_true)
-
+# L = - adj_matrix
+clusters_size = [len(cluster) for cluster in clusters_true]
+clusters_size.sort()
+C = (2 * clusters_size[-1] +  outer_cluster * (d - clusters_size[0]- clusters_size[1])) + 2 * d
 # we need to modify the matrix X to define the objective function
 X_hat = np.repeat(X, h, axis=1)
 # print("w_true:", w_true) 
@@ -73,21 +76,37 @@ m_initial = np.ones((nVars, 1)) * (k / nVars)
 # m_initial[0:k] = 1
 
 # Set up Objective Function L0Obj(X, m, y, L, rho, mu, d, h, n)::
-funObj = lambda m: L0Obj(X_hat, m, y, L, pho, mu, d, h, n)
+funObj = lambda m: L0Obj(X_hat, m, y, L, pho, mu, d, h, n, C)
 
 # Set up Simplex Projection Function ProjOperator_Gurobi(m, k, d, h):
 funProj = lambda m: ProjOperator_Gurobi(m, k, d, h)
+
+funObj_separate = lambda m: L0Obj_separate(X_hat, m, y, L, pho, mu, d, h, n)
 
 tEnd = time.process_time() - tStart
 print("Execution time(Before):", tEnd)
 print("start!!!")
 # Solve with PQN
-options = {'maxIter': 100, 'verbose': 0}
+options = {'maxIter': 100, 'verbose': 3}
 tStart = time.process_time()
 mout, obj, _ = minConF_PQN(funObj, m_initial, funProj, options)
-# print(f"uout: {mout}")
-# print(f"m_sum: {np.sum(mout)}, m_featuress_sum: {np.sum(mout.reshape(d, h), axis=1)}, m_clusters_sum: {np.sum(mout.reshape(d, h), axis=0)}")
+print(f"uout: {mout}")
+print(f"m_sum: {np.sum(mout)}, m_featuress_sum: {np.sum(mout.reshape(d, h), axis=1)}, m_clusters_sum: {np.sum(mout.reshape(d, h), axis=0)}")
 # save the result to a file 
+
+m_ground_truth = np.zeros((d, h))
+for c, cluster in enumerate(clusters_true[:h]):
+    for i in cluster:
+        m_ground_truth[i, c] = 1
+
+f, g, graph_penalty, precision_penalty, A_grad, B_grad = funObj_separate(m_ground_truth.flatten())
+print(f"obj: {f}, graph_penalty_gt: {graph_penalty}, precision_penalty_gt: {precision_penalty}")
+
+
+f_init, g_init, graph_penalty_init, precision_penalty_init, A_grad_init, B_grad_init = funObj_separate(m_initial)
+f, g, graph_penalty, precision_penalty, A_grad, B_grad = funObj_separate(mout)
+print(f"obj: {f}, graph_penalty_init: {graph_penalty_init}, precision_penalty_init: {precision_penalty_init}")
+print(f"obj: {f}, graph_penalty: {graph_penalty}, precision_penalty: {precision_penalty}")
 sio.savemat('mout.mat', {'mout': mout})
 tEnd = time.process_time() - tStart
 

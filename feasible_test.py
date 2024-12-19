@@ -1,5 +1,7 @@
-from gurobipy import Model, Env
+import gurobipy as gp
+from gurobipy import GRB
 import numpy as np
+
 
 
 def construct_difference_matrix(m, n):
@@ -37,15 +39,8 @@ def construct_difference_matrix(m, n):
 
     return D.tocsr()  # Convert to CSR format for efficient use in solvers
 
-def ProjOperator_Gurobi(m, k, d, h):
-    """
-    This function projects the input vector m onto the simplex while satisfying constraints.
-    Parameters:
-    - m: input vector
-    - k: sparsity level (number of non-zero entries allowed)
-    - d: number of features
-    - h: number of clusters
-    """
+def feasible_test(d, h, k, point):
+
     A = np.ones((1, d * h))  # Sparsity constraint matrix
     b = np.array([k])        # Sparsity constraint vector
 
@@ -70,37 +65,42 @@ def ProjOperator_Gurobi(m, k, d, h):
 
 
     # add inter-cluster variable inequality constraints
-    # D = construct_difference_matrix(d, h)
+    D = construct_difference_matrix(d, h)
     
 
-    with Env(empty=True) as env:
-        env.setParam('OutputFlag', 0)  # Suppress output
-        env.start()
-        with Model(env=env) as model:
-            # Add variables
-            x = model.addMVar(d * h, lb=0.0, ub=1.0)
+    # Define a model
+    model = gp.Model()
 
-            # Objective function (quadratic)
-            Q = np.eye(d * h)
-            f = -2 * m.flatten()
-            model.setObjective(x @ Q @ x + f @ x, sense=1)  # Minimize
 
-            # Add constraints
-            model.addConstr(C @ x <= Cb.flatten(), name="GeneralConstraints")
-            # model.addConstr(Cluster @ x >= Cluster_b.flatten(), name="ClusterCoverage")
-            # model.addConstr(Aa @ x == bb.flatten(), name="Sparsity")
-            # model.addConstr(x@ D.T @ D @ x >= k, name="InterCluster")
+    # Define variables
+    x = model.addMVar(d * h, lb=0.0, ub=1.0)
+
+    # Define the quadratic matrix Q (example: identity matrix)
+    Q = np.eye(n)
+
+    # Add the quadratic constraint
+    Q = np.eye(d * h)
+    f = -2 * p.flatten()
+    model.setObjective(x @ Q @ x + f @ x, sense=1)  # Minimize
+
+    # Add constraints
+    model.addConstr(C @ x <= Cb.flatten(), name="GeneralConstraints")
+    model.addConstr(Cluster @ x >= Cluster_b.flatten(), name="ClusterCoverage")
+    model.addConstr(Aa @ x == bb.flatten(), name="Sparsity")
+    model.addConstr(x@ D.T @ D @ x >= k, name="InterCluster")
             
 
-            # Optimize
-            model.optimize()
+    # Fix variables to a given point
+    point = np.random.randn(n)  # Replace with the point you want to check
+    for i in range(n):
+        x[i].lb = point[i]
+        x[i].ub = point[i]
 
-            # Debugging infeasibility
-            if model.Status == 3:  # Infeasible
-                print("Model is infeasible. Writing infeasibility report...")
-                model.computeIIS()
-                model.write("infeasibility_report.ilp")
-                return None
+    # Optimize
+    model.optimize()
 
-            # Return solution
-            return x.x
+    # Check feasibility
+    if model.Status == GRB.OPTIMAL:
+        print("Point is feasible.")
+    else:
+        print("Point is not feasible.")

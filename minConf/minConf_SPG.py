@@ -70,7 +70,7 @@ def minConF_SPG(funObj, x, funProj, options):
     # Optionally check optimality
     if testOpt:
         projects = projects + 1
-        if np.max(np.abs(funProj(x-g)-x)) < optTol:
+        if np.sum(np.abs(funProj(x-g)-x)) < optTol:
         # if np.sum(np.abs(funProj(x-g)-x)) < optTol:
             if verbose >= 1:
                 print("First-Order Optimality Conditions Below optTol at Initial Point")
@@ -172,7 +172,7 @@ def minConF_SPG(funObj, x, funProj, options):
                 t = temp*0.6
             
             # Check whether step has become too small
-            if np.max(np.abs(t*d)) < progTol or t==0:#np.sum(np.abs(t*d)) < optTol or t==0:
+            if np.sum(np.abs(t*d)) < optTol or t==0:#np.sum(np.abs(t*d)) < optTol or t==0:
                 if verbose==3:
                     print("Line Search Failed")
                 t = 0
@@ -215,12 +215,12 @@ def minConF_SPG(funObj, x, funProj, options):
                     print('First-Order Optimality Conditions Below optTol')
                 break
 
-        if np.max(np.abs(t*d)) < progTol:#np.sum(np.abs(t * d)) < optTol:
+        if np.sum(np.abs(t*d)) < optTol:#np.sum(np.abs(t * d)) < optTol:
             if verbose >= 1:
                 print('Step size below progTol')
             break
 
-        if np.abs(f - f_old) < progTol:
+        if np.abs(f - f_old) < optTol:
             if verbose >= 1:
                 print('Function value changing by less than progTol')
             break
