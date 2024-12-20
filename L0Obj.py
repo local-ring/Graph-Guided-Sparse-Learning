@@ -68,8 +68,10 @@ def L0Obj(X, m, y, L, pho, mu, d, h, n, C=1):
     # print(f"B_grad: {B_grad}")
 
     g = A_grad + B_grad.flatten() + C * gradient.flatten()
+    # f = [0] + f
+    # g = [0] + g
 
-    return f, g
+    return f, g.tolist()
 
 
 def L0Obj_separate(X, m, y, L, pho, mu, d, h, n):

@@ -102,5 +102,9 @@ def ProjOperator_Gurobi(m, k, d, h):
                 model.write("infeasibility_report.ilp")
                 return None
 
-            # Return solution
-            return x.x
+            # # Return solution
+            # solution = x.X
+            # # shift the solution to the right by one index
+            # solution = [0] + solution
+            sol = x.x
+            return sol.flatten().tolist()

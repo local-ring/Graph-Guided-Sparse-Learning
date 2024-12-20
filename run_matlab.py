@@ -88,9 +88,49 @@ tEnd = time.process_time() - tStart
 print("Execution time(Before):", tEnd)
 print("start!!!")
 # Solve with PQN
+# options = {'maxIter': 100, 'verbose': 3}
+# tStart = time.process_time()
+# mout, obj, _ = minConF_PQN(funObj, m_initial, funProj, options)
+
+
+# Start MATLAB engine
+eng = matlab.engine.start_matlab()
+
+# Add MATLAB path
+# eng.addpath('/Users/aolongli/Downloads/PQN/', nargout=0)
+# eng.addpath('/Users/aolongli/Downloads/PQN/minConF/', nargout=0)
+eng.addpath(eng.genpath('/Users/aolongli/Downloads/PQN/'), nargout=0)
+
+
+# Define MATLAB-compatible function handles for Python functions
+eng.eval("pySysPath = '/Users/aolongli/Desktop/Research-GFL/Experiement/code/gfl';", nargout=0)
+eng.eval("if count(py.sys.path, pySysPath) == 0; insert(py.sys.path, int32(0), pySysPath); end;", nargout=0)
+
+# Define the Python-based objective and projection functions in MATLAB
+eng.eval(
+    """
+    funObj = @(m) py.L0Obj.L0Obj(X, m, y, L, pho, mu, d, h, n, C);
+    funProj = @(m) py.ProjectOperator.ProjOperator_Gurobi(m, k, d, h);
+    """,
+    nargout=0
+)
+
+# Set options and initial guess
 options = {'maxIter': 100, 'verbose': 3}
-tStart = time.process_time()
-mout, obj, _ = minConF_PQN(funObj, m_initial, funProj, options)
+matlab_options = eng.struct(options)
+
+m_initial =  np.ones((nVars, 1)) * (k / nVars)
+
+m_initial = matlab.double(m_initial.flatten().tolist())  # Ensure it is a numeric array
+
+
+# Call minConf_PQN
+mout, obj, fun_evals = eng.minConF_PQN(
+    "funObj", m_initial, "funProj", matlab_options, nargout=3
+)
+
+eng.quit()
+
 print(f"uout: {mout}")
 print(f"m_sum: {np.sum(mout)}, m_featuress_sum: {np.sum(mout.reshape(d, h), axis=1)}, m_clusters_sum: {np.sum(mout.reshape(d, h), axis=0)}")
 # save the result to a file 

@@ -148,7 +148,7 @@ def generate_random_graph(d, h_total, h, inter_cluster_prob, outer_cluster_prob,
 
     # TODO: ensure the graph is connected
 
-    if visualize:
+    if not visualize:
         plt.figure(figsize=(8, 8))
         plt.spy(adj_matrix, markersize=1)
         plt.title("Generated Adjacency Matrix")
