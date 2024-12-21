@@ -52,35 +52,3 @@ function solution = ProjOperator_Gurobi(m, k, d, h)
         solution = result.x;
     end
 
-function D = construct_difference_matrix(m, n)
-    % Constructs the difference matrix D for variables indexed by (i, j),
-    % representing pairwise differences (x_{i,j} - x_{i,j-1}).
-    
-    % Inputs:
-    %   m: Number of rows (features or dimensions, "d").
-    %   n: Number of columns (clusters, "h").
-    
-    % Outputs:
-    %   D: Sparse matrix representing pairwise differences.
-    
-        % Number of rows in D is m * (n-1)
-        % Number of columns in D is m * n
-        num_rows = m * (n - 1);
-        num_cols = m * n;
-    
-        % Initialize sparse matrix
-        D = spalloc(num_rows, num_cols, 2 * num_rows);
-    
-        % Fill the matrix with +1 and -1 for each difference x_{i,j} - x_{i,j-1}
-        for i = 1:m
-            for j = 2:n
-                row_idx = (i - 1) * (n - 1) + (j - 1);  % Row in D
-                col_plus = (i - 1) * n + j;            % x_{i,j} position (+1)
-                col_minus = (i - 1) * n + (j - 1);     % x_{i,j-1} position (-1)
-    
-                D(row_idx, col_plus) = 1;
-                D(row_idx, col_minus) = -1;
-            end
-        end
-    end
-

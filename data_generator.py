@@ -64,26 +64,64 @@ def visualize_graph(G, clusters, selected_features):
     plt.title("Generated Graph Structure with Cluster Colors and Unselected Nodes in Gray")
     plt.show()
 
-def read_synthetic_data_from_file(file_path):
-    print("reading the synthetic data from the file", file_path)
-    with np.load(file_path, allow_pickle=True) as data:
-        X = data["X"]
-        w = data["w"]
-        y = data["y"]
-        clusters = data["clusters"]
-        selected_features = data["selected_features"]
-    adj_matrix = sp.load_npz(file_path.replace(".npz", "_adj_matrix.npz"))
-    laplacian_matrix = sp.load_npz(file_path.replace(".npz", "_laplacian_matrix.npz"))
-    # print(X.shape, w.shape, y.shape, adj_matrix.shape, laplacian_matrix.shape, clusters.shape, selected_features.shape)
-    return X, w, y, adj_matrix, laplacian_matrix, clusters, selected_features
+import numpy as np
+import scipy.sparse as sp
 
-def save_synthetic_data_to_file(file_path, X, w, y, adj_matrix, laplacian_matrix, clusters, selected_features):
-    np.savez(file_path, X=X, w=w, y=y, clusters=clusters, selected_features=selected_features, allow_pickle=True)
-    sp.save_npz(file_path.replace(".npz", "_adj_matrix.npz"), adj_matrix) # we need to save the sparse matrix separately
-    sp.save_npz(file_path.replace(".npz", "_laplacian_matrix.npz"), laplacian_matrix)
+from scipy.io import savemat, loadmat
 
-    print("synthetic data saved to the file", file_path)
+import pickle
 
+def save_synthetic_data(file_path, X, w, y, adj_matrix, laplacian_matrix, clusters, k):
+    """
+    Save synthetic data using pickle to avoid dimensional consistency issues.
+    
+    Parameters:
+    - file_path: Path to save the data.
+    - X, w, y: Feature matrix, weight vector, target vector.
+    - adj_matrix, laplacian_matrix: Sparse matrices.
+    - clusters: List of clusters (list of lists).
+    - k: Scalar metadata.
+    """
+    print(f"Saving synthetic data to file: {file_path}")
+    with open(file_path, 'wb') as f:
+        pickle.dump({
+            'X': X,
+            'w': w,
+            'y': y,
+            'adj_matrix': adj_matrix,
+            'laplacian_matrix': laplacian_matrix,
+            'clusters': clusters,
+            'k': k
+        }, f)
+    print("Synthetic data saved successfully.")
+
+def read_synthetic_data(file_path):
+    """
+    Load synthetic data saved with pickle.
+    
+    Parameters:
+    - file_path: Path to load the data from.
+    
+    Returns:
+    - X, w, y, adj_matrix, laplacian_matrix, clusters, k.
+    """
+    print(f"Reading synthetic data from file: {file_path}")
+    with open(file_path, 'rb') as f:
+        data = pickle.load(f)
+    
+    # Debug output for loaded data
+    print(f"Loaded data:")
+    print(f"  X shape: {data['X'].shape}")
+    print(f"  w shape: {data['w'].shape}")
+    print(f"  y shape: {data['y'].shape}")
+    print(f"  adj_matrix shape: {data['adj_matrix'].shape}")
+    print(f"  laplacian_matrix shape: {data['laplacian_matrix'].shape}")
+    print(f"  clusters length: {len(data['clusters'])}")
+    print(f"  k: {data['k']}")
+    
+    return (data['X'], data['w'], data['y'], 
+            data['adj_matrix'], data['laplacian_matrix'], 
+            data['clusters'], data['k'])
 
 def random_partition(d, h_total):
     """
@@ -168,8 +206,8 @@ def generate_weight(d, selected_clusters, k):
     w = np.zeros(d)
     for i, cluster in enumerate(selected_clusters):
         sign = np.random.choice([-1, 1])
-        # feature_weight = np.random.normal(1/np.sqrt(k), 1) * sign
-        feature_weight = 1.0 * sign
+        feature_weight = np.random.normal(1/np.sqrt(k), 1) * sign
+        # feature_weight = 1.0 * sign
         for feature in cluster:
             w[feature] = feature_weight
         print(f"cluster {i}: {cluster}, feature_weight: {feature_weight}")
@@ -185,8 +223,8 @@ def generate_graph(d, h_total, h, inter_cluster=0.9, outer_cluster=0.05, connect
                                                         visualize=visualize)
 
         # # normalized laplacian matrix
-        degree_matrix_sqrt_inv = sp.diags(np.ravel(1 / np.sqrt(adj_matrix.sum(axis=1))))
-        laplacian_matrix = sp.eye(d) - degree_matrix_sqrt_inv @ adj_matrix @ degree_matrix_sqrt_inv
+        # degree_matrix_sqrt_inv = sp.diags(np.ravel(1 / np.sqrt(adj_matrix.sum(axis=1))))
+        # laplacian_matrix = sp.eye(d) - degree_matrix_sqrt_inv @ adj_matrix @ degree_matrix_sqrt_inv
 
     else:
         inter_cluster_prob = 0.05
@@ -248,9 +286,9 @@ def generate_graph(d, h_total, h, inter_cluster=0.9, outer_cluster=0.05, connect
                 print(f"correlated pair: ({i}, {i + k})")
 
 
-    # adj_matrix = adj_matrix.tocsr() # convert to csr format for faster matrix-vector multiplication
-    # degree_matrix = sp.diags(np.ravel(adj_matrix.sum(axis=1)))  
-    # laplacian_matrix = degree_matrix - adj_matrix
+    adj_matrix = adj_matrix.tocsr() # convert to csr format for faster matrix-vector multiplication
+    degree_matrix = sp.diags(np.ravel(adj_matrix.sum(axis=1)))  
+    laplacian_matrix = degree_matrix - adj_matrix
 
             
     # Optional: Visualize the graph with cluster-based colors

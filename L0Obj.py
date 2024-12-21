@@ -1,8 +1,8 @@
 import numpy as np
-from scipy.sparse import spdiags
+from scipy.sparse import spdiags, csr_matrix
 from scipy.linalg import inv
 
-def L0Obj(X, m, y, L, pho, mu, d, h, n, C=1):
+def L0Obj(X, m, y, L, pho, mu, d, h, n):
     """
     Compute the objective function value and gradient for the L0 regularized least squares problem.
     Parameters:
@@ -20,58 +20,45 @@ def L0Obj(X, m, y, L, pho, mu, d, h, n, C=1):
         raise ValueError("The dimensions of X and d*h do not match.")
     
     SpDiag = spdiags(m.flatten(), 0, dh, dh)
-    # print(SpDiag)
-    # print(f"SpDiag: {SpDiag.toarray()[-1][-1]}")
-    B = inv((1/pho) * X @ SpDiag @ X.T + n * np.eye(n))
-    # generate the correspodning assignment matrix
-    # f(x)=3x² - 2x³, f'(x)=6x - 6x²
-    # m = 3 * m**2 - 2 * m**3
-    # grad_m = 6 * m - 6 * m**2
-    # grad_m = grad_m.reshape(d,h)
-    assignment_matrix = m.reshape(d,h)
-    # print(f"assignemen_matrix: {assignemen_matrix}")
-    # print(f"m: {m}")
-    # generate the graph penalty term
-    graph_penalty = mu * np.trace(assignment_matrix.T @ L @ assignment_matrix)
+    # B_inv = (1/pho) * X @ SpDiag @ X.T + np.sqrt(n) * np.eye(n)
+    # if np.linalg.matrix_rank(B_inv) != n:
+    #     print(f"rank: {np.linalg.matrix_rank(B_inv)}, shape: {B_inv.shape}")
+    #     raise ValueError("The matrix is not full rank.")
+    # B = inv(B_inv)
+    regularization = 1e-8
+    B_inv = (1 / pho) * X @ SpDiag @ X.T + np.eye(n) + regularization * np.eye(n)
+    B = np.linalg.solve(B_inv, np.eye(n))
+    # y = n * y
     precision_penalty = y.T @ B @ y
-    # I want to add sum_i sum_{j\neq j'} m_{ij}m_{ij'} to the objective function
 
-    M = m.reshape(d, h)
-    # # Step 1: Compute M M^T (row-wise sums of all pairwise products)
-    # pairwise_sum = np.dot(M, M.T)
+    epsilon = 0.1
+    r = 1 + epsilon
+    eta = 2 * r * mu + 2 * d + 0.4 * (pho ** 2) 
+    L = csr_matrix(L + r * np.eye(d)) # this can keep L as np.ndarray instead of np.matrix which will mess up with the flatten() function
 
-    # # Step 2: Compute sum of squares (exclude diagonal terms)
-    # sum_squares = np.sum(M**2, axis=1)
 
-    # Step 3: Subtract diagonal contributions to exclude j = j'
-    # correction_term = np.sum(np.dot(M.T, M)) - np.sum(np.diag(sum_squares))
+    M = m.reshape(d,h) # generate the assignment matrix
+    graph_penalty = 0.5 * mu * np.trace(M.T @ L @ M) # generate the graph penalty term
+
     MTM = np.dot(M.T, M)
-    correction_term = np.sum(MTM) - np.sum(np.diag(MTM))
+    correction_term = 0.5 * eta * (np.sum(MTM) - np.sum(np.diag(MTM)))
 
-    # Step 1: Compute row-wise sums
-    row_sums = np.sum(M, axis=1, keepdims=True)  # Shape (n_rows, 1)
-
-    # Step 2: Compute the gradient
-    gradient = 2 * (row_sums - M)
-    
-    correction_term = C * np.sum(m**2)
+    row_sums = np.sum(M, axis=1, keepdims=True)  
     f = precision_penalty + graph_penalty + correction_term # AL: why conjuate transpose? i remove the .conj()
 
     A_grad = -(1/pho) * ((X.conj().T @ B @ y)**2) # the gradient of the first term
-    # B_grad = 2 * mu * L @ assignment_matrix # the gradient of the second term
-    # B_grad = 2 * mu * (L @ assignment_matrix) * grad_m # the gradient of the second term
-    B_grad = 2 * mu * (L @ assignment_matrix)  # the gradient of the second term
 
-    # print(f"precision_penalty: {precision_penalty}")
-    # print(f"graph_penalty: {graph_penalty}")
-    # print(f"A_grad: {A_grad}")
-    # print(f"B_grad: {B_grad}")
+    B_grad =  mu * (L @ M)  # the gradient of the second term
 
-    g = A_grad + B_grad.flatten() + C * gradient.flatten()
-    # f = [0] + f
-    # g = [0] + g
+    C_grad = eta * (M - row_sums) # the gradient of the third term
 
-    return f, g.tolist()
+    B_grad = B_grad.flatten()
+
+    C_grad = C_grad.flatten()
+
+    g = A_grad + B_grad + C_grad
+
+    return f, g
 
 
 def L0Obj_separate(X, m, y, L, pho, mu, d, h, n):
@@ -92,22 +79,46 @@ def L0Obj_separate(X, m, y, L, pho, mu, d, h, n):
         raise ValueError("The dimensions of X and d*h do not match.")
     
     SpDiag = spdiags(m.flatten(), 0, dh, dh)
-    # print(SpDiag)
-    # print(f"SpDiag: {SpDiag.toarray()[-1][-1]}")
-    M = inv((1/pho) * X @ SpDiag @ X.T + n * np.eye(n))
-    # generate the correspodning assignment matrix
-    m = 3 * m**2 - 2 * m**3
-    grad_m = 6 * m - 6 * m**2
-    grad_m = grad_m.reshape(d,h)
-    assignment_matrix = m.reshape(d,h)
-    # generate the graph penalty term
-    graph_penalty = mu * np.trace(assignment_matrix.T @ L @ assignment_matrix)
-    precision_penalty = y.T @ M @ y
-    f = precision_penalty + graph_penalty # AL: why conjuate transpose? i remove the .conj()
+    B_inv = (1/pho) * X @ SpDiag @ X.T + n * np.eye(n)
+    if np.linalg.matrix_rank(B_inv) != n:
+        print(f"rank: {np.linalg.matrix_rank(B_inv)}, shape: {B_inv.shape}")
+        raise ValueError("The matrix is not full rank.")
+    B = inv(B_inv)
 
-    A_grad = -(1/pho) * ((X.conj().T @ M @ y)**2) # the gradient of the first term
-    B_grad = 2 * mu * (L @ assignment_matrix) * grad_m # the gradient of the second term
+    precision_penalty = y.T @ B @ y
 
-    g = A_grad + B_grad.flatten()
+    epsilon = 0.1
+    r = 1 + epsilon
+    eta = 2 * r * mu + 2 * d + 0.4 * (pho ** 2) 
 
-    return f, g, graph_penalty, precision_penalty, A_grad, B_grad
+    # L = L + C * np.eye(d) # add identity matrix to L
+    L = csr_matrix(L + r * np.eye(d)) # this can keep L as np.ndarray instead of np.matrix which will mess up with the flatten() function
+
+
+    M = m.reshape(d,h) # generate the assignment matrix
+    graph_penalty = 0.5 * mu * np.trace(M.T @ L @ M) # generate the graph penalty term
+
+    MTM = np.dot(M.T, M)
+    correction_term = 0.5 * eta * (np.sum(MTM) - np.sum(np.diag(MTM)))
+
+    row_sums = np.sum(M, axis=1, keepdims=True)  
+    f = precision_penalty + graph_penalty + correction_term # AL: why conjuate transpose? i remove the .conj()
+
+    A_grad = -(1/pho) * ((X.conj().T @ B @ y)**2) # the gradient of the first term
+    # print("L type:", type(L))
+    # print("M type:", type(M))
+    B_grad =  mu * (L @ M)  # the gradient of the second term
+
+    C_grad = eta * (M - row_sums) # the gradient of the third term
+
+    # print("A_grad shape:", A_grad.shape)
+    # print("B_grad shape:", B_grad.shape)
+    B_grad = B_grad.flatten()
+    # print("B_grad shape:", B_grad.shape)
+    # print("C_grad shape:", C_grad.shape)
+    C_grad = C_grad.flatten()
+    # print("C_grad shape:", C_grad.shape)
+
+    g = A_grad + B_grad + C_grad
+
+    return f, g, graph_penalty, precision_penalty, correction_term, A_grad, B_grad, C_grad

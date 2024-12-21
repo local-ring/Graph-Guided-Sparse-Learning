@@ -169,8 +169,9 @@ def minConF_PQN(funObj, x, funProj, options=None):
         x_old = x
 
         # Check that Progress can be made along the direction
+        # print(f"g shape: {g.shape}, d shape: {d.shape}")
         gtd = g.conj().T @ d
-        if gtd > -optTol:#progTol:
+        if gtd > -optTol: #progTol:
             if verbose >= 1:
                 print('Directional Derivative below optTol')
             break
