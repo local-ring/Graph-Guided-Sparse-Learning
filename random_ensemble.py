@@ -15,13 +15,13 @@ tStart = time.process_time()
 # Generate synthetic data
 # Parameters
 n = 1000  # Number of samples
-d = 500   # Number of features
+d = 100   # Number of features
 # k = 20  # Number of non-zero features
 h_total = 5    # number of cluster in the graph
 h = 3 # number of cluster that are selected i.e. related to the dependent variable
 nVars = d*h # Number of Boolean variables in m
 inter_cluster = 0.95 # probability of inter-cluster edges in graph
-outer_cluster = 0.01 # probability of outer-cluster edges in graph
+outer_cluster = 0.0 # probability of outer-cluster edges in graph
 gamma = 1.5  # Noise standard deviation
 
 mu = 1

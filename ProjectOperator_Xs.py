@@ -36,7 +36,7 @@ def ProjOperator_Xs(vec, n, k):
         GRB.MINIMIZE
     )
 
-    # Constraint 1: sum(y_ii) <= k
+    # Constraint 1: sum(y_ii) <= k and sum(y_ii) >= k-1
     model.addConstr(quicksum(y[i, i] for i in range(n)) <= k, name="DiagonalSum")
     model.addConstr(quicksum(y[i, i] for i in range(n)) >= k-1, name="DiagonalSum")
 

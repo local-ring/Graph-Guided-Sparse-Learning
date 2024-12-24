@@ -157,7 +157,7 @@ def generate_random_graph(d, h_total, h, inter_cluster_prob, outer_cluster_prob,
 
     # again, without loss of generality, we can assume that the first h clusters are the selected clusters
     selected_clusters = clusters[:h]
-    k = selected_clusters[-1][-1]   # the last feature in the last selected cluster
+    k = selected_clusters[-1][-1] + 1  # the last feature in the last selected cluster
     print("number of selected/non-zero features:", k)
 
     # create the adjacency matrix
