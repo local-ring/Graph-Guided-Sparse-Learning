@@ -7,6 +7,8 @@ import matplotlib.colors as mcolors
 import pickle
 
 
+
+
 def add_noise_to_signal(signal, desired_snr_db):
     # Convert signal to numpy array
     signal = np.asarray(signal)
@@ -64,12 +66,6 @@ def visualize_graph(G, clusters, selected_features):
     plt.title("Generated Graph Structure with Cluster Colors and Unselected Nodes in Gray")
     plt.show()
 
-import numpy as np
-import scipy.sparse as sp
-
-from scipy.io import savemat, loadmat
-
-import pickle
 
 def save_synthetic_data(file_path, X, w, y, adj_matrix, laplacian_matrix, clusters, k):
     """
@@ -95,7 +91,7 @@ def save_synthetic_data(file_path, X, w, y, adj_matrix, laplacian_matrix, cluste
         }, f)
     print("Synthetic data saved successfully.")
 
-def read_synthetic_data(file_path):
+def read_synthetic_data(file_path, visualize=False):
     """
     Load synthetic data saved with pickle.
     
@@ -118,10 +114,14 @@ def read_synthetic_data(file_path):
     print(f"  laplacian_matrix shape: {data['laplacian_matrix'].shape}")
     print(f"  clusters length: {len(data['clusters'])}")
     print(f"  k: {data['k']}")
+
+    if visualize:
+        visualize_graph(data['adj_matrix'])
     
     return (data['X'], data['w'], data['y'], 
             data['adj_matrix'], data['laplacian_matrix'], 
             data['clusters'], data['k'])
+
 
 def random_partition(d, h_total):
     """
@@ -186,17 +186,19 @@ def generate_random_graph(d, h_total, h, inter_cluster_prob, outer_cluster_prob,
 
     # TODO: ensure the graph is connected
 
-    if not visualize:
-        plt.figure(figsize=(8, 8))
-        plt.spy(adj_matrix, markersize=1)
-        plt.title("Generated Adjacency Matrix")
-        plt.axis("off")
-        plt.show()
-
+    if visualize:
+        visualize_graph(adj_matrix)
     G = nx.from_scipy_sparse_array(adj_matrix)  
     print("Number of connected components:", nx.number_connected_components(G))
 
     return adj_matrix, clusters, k
+
+def visualize_graph(adj_matrix):
+    plt.figure(figsize=(8, 8))
+    plt.spy(adj_matrix, markersize=1)
+    plt.title("Generated Adjacency Matrix")
+    plt.axis("off")
+    plt.show()
 
 def generate_weight(d, selected_clusters, k):
     """

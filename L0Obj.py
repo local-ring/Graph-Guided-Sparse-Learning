@@ -25,15 +25,19 @@ def L0Obj(X, m, y, L, pho, mu, d, h, n):
     #     print(f"rank: {np.linalg.matrix_rank(B_inv)}, shape: {B_inv.shape}")
     #     raise ValueError("The matrix is not full rank.")
     # B = inv(B_inv)
-    regularization = 1e-8
-    B_inv = (1 / pho) * X @ SpDiag @ X.T + np.eye(n) + regularization * np.eye(n)
+    # regularization = 1e-8
+    B_inv = (1 / pho) * X @ SpDiag @ X.T + np.eye(n)
+    print("B_inv_max:", np.max(B_inv), "B_inv_min:", np.min(B_inv), )
     B = np.linalg.solve(B_inv, np.eye(n))
+    print("B_max:", np.max(B), "B_min:", np.min(B), )
     # y = n * y
     precision_penalty = y.T @ B @ y
 
     epsilon = 0.1
     r = 1 + epsilon
-    eta = 2 * r * mu + 2 * d + 0.4 * (pho ** 2) 
+    # r = 0
+    # eta = 2 * r * mu + 2 * d + 0.4 * (pho ** 2) 
+    eta = 2 * r * mu + 0.4 * (pho ** 2) 
     L = csr_matrix(L + r * np.eye(d)) # this can keep L as np.ndarray instead of np.matrix which will mess up with the flatten() function
 
 
@@ -56,9 +60,20 @@ def L0Obj(X, m, y, L, pho, mu, d, h, n):
 
     C_grad = C_grad.flatten()
 
-    g = A_grad + B_grad + C_grad
+    # g = A_grad + B_grad + C_grad
+    g = A_grad
+    f = precision_penalty
+    # print("value of g norm:", np.linalg.norm(g))
+    print("max of g:", np.max(g))
+    # # scale the gradient
+    # f = f / np.linalg.norm(g)
+    # g = g / np.linalg.norm(g)
 
-    return f, g
+    # print("value of g norm after scaling:", np.linalg.norm(g))
+    # print("max of g after scaling:", np.max(g))
+
+
+    return f, g 
 
 
 def L0Obj_separate(X, m, y, L, pho, mu, d, h, n):
@@ -89,7 +104,9 @@ def L0Obj_separate(X, m, y, L, pho, mu, d, h, n):
 
     epsilon = 0.1
     r = 1 + epsilon
+    # r = 0
     eta = 2 * r * mu + 2 * d + 0.4 * (pho ** 2) 
+    # eta = 100
 
     # L = L + C * np.eye(d) # add identity matrix to L
     L = csr_matrix(L + r * np.eye(d)) # this can keep L as np.ndarray instead of np.matrix which will mess up with the flatten() function

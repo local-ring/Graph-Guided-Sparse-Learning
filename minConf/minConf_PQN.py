@@ -8,48 +8,46 @@ from minFunc.polyinterp import polyinterp
 from minFunc.autoDif.autoGrad import autoGrad
 
 def minConF_PQN(funObj, x, funProj, options=None):
-    """
-    function [x,f] = minConF_PQN(funObj,funProj,x,options)
-    
-    Function for using a limited-memory projected quasi-Newton to solve problems of the form
-      min funObj(x) s.t. x in C
-    
-    The projected quasi-Newton sub-problems are solved the spectral projected
-    gradient algorithm
-    
-      @funObj(x): function to minimize (returns gradient as second argument)
-      @funProj(x): function that returns projection of x onto C
-    
-      options:
-          verbose: level of verbosity (0: no output, 1: final, 2: iter (default), 3:
-          debug)
-          optTol: tolerance used to check for progress (default: 1e-6)
-          maxIter: maximum number of calls to funObj (default: 500)
-          maxProject: maximum number of calls to funProj (default: 100000)
-          numDiff: compute derivatives numerically (0: use user-supplied
-          derivatives (default), 1: use finite differences, 2: use complex
-          differentials)
-          suffDec: sufficient decrease parameter in Armijo condition (default: 1e-4)
-          corrections: number of lbfgs corrections to store (default: 10)
-          adjustStep: use quadratic initialization of line search (default: 0)
-          bbInit: initialize sub-problem with Barzilai-Borwein step (default: 1)
-          SPGoptTol: optimality tolerance for SPG direction finding (default: 1e-6)
-       SPGiters: maximum number of iterations for SPG direction finding (default:10)
-    """
+    # function [x,f] = minConF_PQN(funObj,funProj,x,options)
+    #
+    # Function for using a limited-memory projected quasi-Newton to solve problems of the form
+    #   min funObj(x) s.t. x in C
+    #
+    # The projected quasi-Newton sub-problems are solved the spectral projected
+    # gradient algorithm
+    #
+    #   @funObj(x): function to minimize (returns gradient as second argument)
+    #   @funProj(x): function that returns projection of x onto C
+    #
+    #   options:
+    #       verbose: level of verbosity (0: no output, 1: final, 2: iter (default), 3:
+    #       debug)
+    #       optTol: tolerance used to check for progress (default: 1e-6)
+    #       maxIter: maximum number of calls to funObj (default: 500)
+    #       maxProject: maximum number of calls to funProj (default: 100000)
+    #       numDiff: compute derivatives numerically (0: use user-supplied
+    #       derivatives (default), 1: use finite differences, 2: use complex
+    #       differentials)
+    #       suffDec: sufficient decrease parameter in Armijo condition (default: 1e-4)
+    #       corrections: number of lbfgs corrections to store (default: 10)
+    #       adjustStep: use quadratic initialization of line search (default: 0)
+    #       bbInit: initialize sub-problem with Barzilai-Borwein step (default: 1)
+    #       SPGoptTol: optimality tolerance for SPG direction finding (default: 1e-6)
+    #    SPGiters: maximum number of iterations for SPG direction finding (default:10)
 
     nVars = len(x)
 
     default_options = {
         'verbose': 2,           # Verbosity level
         'numDiff': 0,           # Numerical differentiation mode
-        'optTol': 1e-6,         # Optimality tolerance
+        'optTol': 1e-9,         # Optimality tolerance
         'progTol': 1e-9,
         'maxIter': 500,         # Maximum outer iterations (PQN)
         'maxProject': 100000,   # Maximum projection iterations
         'suffDec': 1e-4,        # Sufficient decrease parameter for Armijo
-        'corrections': 10,      # Number of L-BFGS corrections to store
+        'corrections': 10,       # Number of L-BFGS corrections to store
         'adjustStep': 0,        # Use quadratic initialization for line search
-        'bbInit': 0,            # Barzilai-Borwein step initialization for sub-problem  
+        'bbInit': 0,            # Barzilai-Borwein step initialization for sub-problem
         'SPGoptTol': 1e-6,      # Optimality tolerance for SPG
         'SPGprogTol': 1e-10,
         'SPGiters': 10,         # Maximum inner iterations (SPG)
@@ -120,7 +118,6 @@ def minConF_PQN(funObj, x, funProj, options=None):
     
     i = 1
     while funEvals <= maxIter:
-        # print(f"iteration: {i}")
         # Compute Step Direction
         if i == 1:
             p = funProj(x-g)
@@ -169,9 +166,8 @@ def minConF_PQN(funObj, x, funProj, options=None):
         x_old = x
 
         # Check that Progress can be made along the direction
-        # print(f"g shape: {g.shape}, d shape: {d.shape}")
         gtd = g.conj().T @ d
-        if gtd > -optTol: #progTol:
+        if gtd > -optTol:#progTol:
             if verbose >= 1:
                 print('Directional Derivative below optTol')
             break
@@ -187,20 +183,17 @@ def minConF_PQN(funObj, x, funProj, options=None):
             t = min(1, 1 / np.sum(np.abs(g)))
 
         # Evaluate the Objective and Gradient at the Initial Step
-        # if t==1:
-        #     x_new = p
-        # else:
-        #     x_new = x + t * d
+        if t==1:
+            x_new = p
+        else:
+            x_new = x + t * d
 
-
-        x_new = x + t * d   
         f_new, g_new = funObj(x_new)
         funEvals = funEvals + 1
 
         # Backtracking Line Search
         f_old = f
-        # while f_new.item() > (f + suffDec * g.conj().T @ (x_new - x)).item() or not isLegal(f_new):
-        while f_new.item() > (f + suffDec * t * gtd) or (not isLegal(f_new)) or (not isLegal(g_new)):
+        while f_new.item() > (f + suffDec * g.conj().T @ (x_new - x)).item() or not isLegal(f_new):
             temp = t
 
             # Backtrack to next trial value
@@ -224,7 +217,7 @@ def minConF_PQN(funObj, x, funProj, options=None):
                 t = temp * 0.6
 
             # Check whether step has become too small
-            if np.sum(np.abs(t * d)) < optTol or t == 0:
+            if np.sum(np.abs(t * d)) < progTol or t == 0:
                 if verbose == 3:
                     print('Line Search failed')
                 t = 0
@@ -235,8 +228,6 @@ def minConF_PQN(funObj, x, funProj, options=None):
             # Evaluate new point
             f_prev = f_new
             t_prev = temp
-            # print(f"t: {t}, shape: {getattr(t, 'shape', 'scalar')}, type: {type(t)}")
-            # print(f"d: {d}, shape: {d.shape}, type: {type(d)}")
             x_new = x + t * d
             f_new, g_new = funObj(x_new)
             funEvals = funEvals + 1
@@ -259,14 +250,14 @@ def minConF_PQN(funObj, x, funProj, options=None):
             print('First-Order Optimality Conditions Below optTol')
             break
 
-        if np.sum(np.abs(t * d)) < optTol:
+        if np.max(np.abs(t * d)) < progTol:
             if verbose >= 1:
-                print('Step size below optTol')
+                print('Step size below progTol')
             break
 
         if np.abs(f - f_old) < progTol:
             if verbose >= 1:
-                print('Function value changing by less than optTol')
+                print('Function value changing by less than progTol')
             break
 
         if funEvals*funEvalMultiplier > maxIter:

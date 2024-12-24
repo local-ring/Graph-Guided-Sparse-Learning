@@ -6,8 +6,8 @@ import time
 
 from L0Obj import L0Obj, L0Obj_separate
 from data_generator import generate_synthetic_data_with_graph, read_synthetic_data, save_synthetic_data
-from ProjectOperator import ProjOperator_Gurobi
-from minConf.minConf_PQN import minConF_PQN
+from ProjectOperator import ProjOperator_Gurobi, check_feasibility_with_gurobi
+from minConf.minConf_PQN_mod import minConF_PQN
 import random
 # import matlab.engine
 
@@ -17,11 +17,11 @@ tStart = time.process_time()
 n = 1000  # Number of samples
 d = 500   # Number of features
 # k = 20  # Number of non-zero features
-h_total = 40    # number of cluster in the graph
-h = 5 # number of cluster that are selected i.e. related to the dependent variable
+h_total = 5    # number of cluster in the graph
+h = 3 # number of cluster that are selected i.e. related to the dependent variable
 nVars = d*h # Number of Boolean variables in m
-inter_cluster = 0.9 # probability of inter-cluster edges in graph
-outer_cluster = 0.05 # probability of outer-cluster edges in graph
+inter_cluster = 0.95 # probability of inter-cluster edges in graph
+outer_cluster = 0.01 # probability of outer-cluster edges in graph
 gamma = 1.5  # Noise standard deviation
 
 mu = 1
@@ -36,10 +36,10 @@ random_graph = True
 visualize = True
 
 if fixed_seed:
-    file_path = "data/synthetic_data.mat"
+    file_path = "data/synthetic_data.pkl"
     print("Fixed seed is enabled. Reading synthetic data from file.")
     # Read synthetic data from the saved files
-    X, w_true, y, adj_matrix, L, clusters_true, k = read_synthetic_data(file_path)
+    X, w_true, y, adj_matrix, L, clusters_true, k = read_synthetic_data(file_path, visualize=visualize)
 else:
     print("Fixed seed is disabled. Generating synthetic data.")
     # Generate synthetic data
@@ -54,7 +54,7 @@ else:
     )
     
     # Save synthetic data to files for future use
-    file_path = "data/synthetic_data.mat"
+    file_path = "data/synthetic_data.pkl"
     save_synthetic_data(file_path, X, w_true, y, adj_matrix, L, clusters_true, k)
     print("Synthetic data has been saved.")
 
@@ -63,7 +63,11 @@ clusters_size.sort()
 # C = (2 * clusters_size[-1] +  outer_cluster * (d - clusters_size[0]- clusters_size[1])) + 2 * d
 # C = d
 # print("C:", C)
-pho = d * 4 * k
+# pho = d * 4 * k
+# pho = np.sqrt(8 * k)
+pho = 1
+# pho = 0.5
+k = k+1
 # we need to modify the matrix X to define the objective function
 X_hat = np.repeat(X, h, axis=1)
 # print("w_true:", w_true) 
@@ -75,12 +79,22 @@ print("Execution time (generating the data):", tEnd)
 # Initial guess of parameters
 # m_initial = np.ones((nVars, 1)) * (1 / nVars)
 # m_initial = np.random.normal(0, 1, (nVars, 1))
-# m_initial = np.random.normal(0, 1/nVars, (nVars, 1))
+# m_initial = np.random.normal(0, k/nVars, (nVars, 1))
 # m_initial = np.zeros((nVars, 1))
+
 # m_initial = np.zeros((nVars, 1)) 
 m_initial = np.ones((nVars, 1)) * (k / nVars)
 
 
+m_ground_truth = np.zeros((d, h))
+for c, cluster in enumerate(clusters_true[:h]):
+    for i in cluster:
+        m_ground_truth[i, c] = 1
+# print(f"m_ground_truth: {m_ground_truth}")
+
+# check if ground truth is feasible
+feasible = check_feasibility_with_gurobi(m_ground_truth.flatten(), k, d, h)
+print("Ground truth is feasible" if feasible else "Infeasible")
 # m_initial[0:k] = 1
 
 # Set up Objective Function L0Obj(X, m, y, L, rho, mu, d, h, n)::
@@ -97,15 +111,28 @@ print("start!!!")
 # Solve with PQN
 options = {'maxIter': 100, 'verbose': 3}
 tStart = time.process_time()
+# m_initial = m_ground_truth.flatten()
+# m_gt = m_ground_truth.flatten()
+# print(m_initial)
+# difference = (m_initial.squeeze() - m_gt ) > 0
+# _, gradient = funObj(m_initial)
+# # grad = (gradient > 0).squeeze()
+# p = funProj(m_initial.squeeze() - gradient)
+# d = p - m_initial.squeeze() 
+# print(difference.shape, p.shape, d.shape)
+# grad = (d > 0).squeeze()
+# squeeze the dimension of grad
+# compare the direction 
+# print(grad.shape, difference.shape)
+# print(np.sum(grad == difference))
 mout, obj, _ = minConF_PQN(funObj, m_initial, funProj, options)
 print(f"uout: {mout}")
-print(f"m_sum: {np.sum(mout)}, m_featuress_sum: {np.sum(mout.reshape(d, h), axis=1)}, m_clusters_sum: {np.sum(mout.reshape(d, h), axis=0)}")
+print(f"m_sum: {np.sum(mout)}")
+print(f"m_featuress_sum: {np.sum(mout.reshape(d, h), axis=1)[-100:]}")
+print(f"m_clusters_sum: {np.sum(mout.reshape(d, h), axis=0)}")
 # save the result to a file 
 
-m_ground_truth = np.zeros((d, h))
-for c, cluster in enumerate(clusters_true[:h]):
-    for i in cluster:
-        m_ground_truth[i, c] = 1
+
 
 f, g, graph_penalty, precision_penalty,correction_term, A_grad, B_grad, C_grad = funObj_separate(m_ground_truth.flatten())
 print(f"obj: {f}, graph_penalty_gt: {graph_penalty}, precision_penalty_gt: {precision_penalty}", f"correction_term: {correction_term}")
@@ -181,6 +208,8 @@ C = np.intersect1d(selected_features_true, selected_features_predict)
 AccPQN = len(C) / k
 
 # sort the dict for clear comparison
+for cluster in clusters_predict.values():
+    cluster.sort()
 print("clusters_predict", clusters_predict)
 # clusters_predict_without_order = [clusters_predict[i] for i in range(h)] if clusters_predict else []
 # for cluster in clusters_predict_without_order:
