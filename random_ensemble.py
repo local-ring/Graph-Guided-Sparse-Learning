@@ -14,21 +14,21 @@ import random
 tStart = time.process_time()
 # Generate synthetic data
 # Parameters
-n = 1000  # Number of samples
-d = 100   # Number of features
+n = 500  # Number of samples
+d = 800   # Number of features
 # k = 20  # Number of non-zero features
-h_total = 5    # number of cluster in the graph
-h = 3 # number of cluster that are selected i.e. related to the dependent variable
+h_total = 20    # number of cluster in the graph
+h = 5 # number of cluster that are selected i.e. related to the dependent variable
 nVars = d*h # Number of Boolean variables in m
-inter_cluster = 0.95 # probability of inter-cluster edges in graph
-outer_cluster = 0.0 # probability of outer-cluster edges in graph
+inter_cluster = 0.9 # probability of inter-cluster edges in graph
+outer_cluster = 0.05 # probability of outer-cluster edges in graph
 gamma = 1.5  # Noise standard deviation
 
 mu = 1
 
 SNR = 1
 
-fixed_seed = 1
+fixed_seed = 0
 random_rounding = 0
 connected = False
 correlated = True
@@ -65,9 +65,8 @@ clusters_size.sort()
 # print("C:", C)
 # pho = d * 4 * k
 # pho = np.sqrt(8 * k)
-pho = 1
+pho = np.sqrt(n)
 # pho = 0.5
-k = k+1
 # we need to modify the matrix X to define the objective function
 X_hat = np.repeat(X, h, axis=1)
 # print("w_true:", w_true) 
@@ -77,14 +76,13 @@ tEnd = time.process_time() - tStart
 print("Execution time (generating the data):", tEnd)
 
 # Initial guess of parameters
-# m_initial = np.ones((nVars, 1)) * (1 / nVars)
+# m_initial = np.ones((nVars, 1)) * (k / nVars)
 # m_initial = np.random.normal(0, 1, (nVars, 1))
 # m_initial = np.random.normal(0, k/nVars, (nVars, 1))
 # m_initial = np.zeros((nVars, 1))
 
 # m_initial = np.zeros((nVars, 1)) 
-m_initial = np.ones((nVars, 1)) * (k / nVars)
-
+m_initial = np.ones((nVars, 1)) 
 
 m_ground_truth = np.zeros((d, h))
 for c, cluster in enumerate(clusters_true[:h]):
