@@ -28,7 +28,7 @@ gamma = 1.5  # Noise standard deviation
 
 SNR = 1
 
-fixed_seed = 1
+fixed_seed = 0
 random_rounding = 0
 connected = False
 correlated = True
@@ -65,8 +65,10 @@ clusters_size.sort()
 # print("C:", C)
 # pho = d * 4 * k
 # pho = np.sqrt(8 * k)
-mu = 1/(2*k + 122) 
-pho = 10 * k
+# mu = 1/(2*k + 122) 
+mu = 0
+pho = np.sqrt(n)
+# pho = 10 * k
 # pho = np.sqrt(n)
 # pho = 0.5
 # we need to modify the matrix X to define the objective function

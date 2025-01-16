@@ -208,7 +208,8 @@ def generate_weight(d, selected_clusters, k):
     w = np.zeros(d)
     for i, cluster in enumerate(selected_clusters):
         sign = np.random.choice([-1, 1])
-        feature_weight = np.random.normal(1/np.sqrt(k), 1) * sign
+        # feature_weight = np.random.normal(1/np.sqrt(k), 1) * sign
+        feature_weight = sign * np.sqrt(1.0 / k)
         # feature_weight = 1.0 * sign
         for feature in cluster:
             w[feature] = feature_weight
