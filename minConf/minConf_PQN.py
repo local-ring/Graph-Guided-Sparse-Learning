@@ -40,7 +40,7 @@ def minConF_PQN(funObj, x, funProj, options=None):
     default_options = {
         'verbose': 2,           # Verbosity level
         'numDiff': 0,           # Numerical differentiation mode
-        'optTol': 1e-9,         # Optimality tolerance
+        'optTol': 1e-6,         # Optimality tolerance
         'progTol': 1e-9,
         'maxIter': 500,         # Maximum outer iterations (PQN)
         'maxProject': 100000,   # Maximum projection iterations
