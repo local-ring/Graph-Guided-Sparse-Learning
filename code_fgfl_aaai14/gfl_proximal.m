@@ -28,7 +28,7 @@ function [beta, funcVal] = gfl_proximal(datafile, resultfile, rho1, rho2)
     save(resultfile, 'beta', 'funcVal');
 
     % Display results
-    fprintf('Results saved to %s\n', resultfile);
+    % fprintf('Results saved to %s\n', resultfile);
 
     % Function to process adjacency matrix
     function [nE, E_in, E_out, E_w] = adj_matrix_to_graph(AdjMat)
