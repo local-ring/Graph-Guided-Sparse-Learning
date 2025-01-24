@@ -1,2 +1,9 @@
 __pycache__/
 env/
+
+# Ignore specific directories
+/node_modules/
+/dist/
+/data/
+/code_fgfl_aaai14/data_gfl/
+/PQN/data

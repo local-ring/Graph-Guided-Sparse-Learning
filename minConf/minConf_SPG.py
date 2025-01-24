@@ -160,7 +160,7 @@ def minConF_SPG(funObj, x, funProj, options):
                 if verbose == 3:
                     print("Cubic Backtracking on Function Values")
                 t = polyinterp(points=np.array([[0, f, gtd], [t, f_new, np.sqrt(-1)], [t_prev, f_prev, np.sqrt(-1)]]))
-            print(f"Iteration {i}: Step size t = {t}, f_new = {f_new}, f_old = {f}")
+            # print(f"Iteration {i}: Step size t = {t}, f_new = {f_new}, f_old = {f}")
             # Adjust if change is too small
             if t<temp*1e-3:
                 if verbose==3:
