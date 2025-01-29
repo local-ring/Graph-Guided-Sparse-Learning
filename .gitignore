@@ -6,4 +6,6 @@ env/
 /dist/
 /data/
 /code_fgfl_aaai14/data_gfl/
-/PQN/data
+/PQN/data/
+/code_fgfl_aaai14/result_gfl/
+/PQN/result/

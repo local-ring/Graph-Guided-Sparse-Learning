@@ -1,4 +1,4 @@
-function gfl_pqn(datafile, resultfile, rho, mu)
+function gfl_pqn(datafile, resultfile, rho, mu, k)
     % gfl_pqn: MATLAB implementation for solving the Generalized Fused Lasso (GFL) problem
     % using the PQN optimization framework.
     % 
@@ -27,13 +27,13 @@ function gfl_pqn(datafile, resultfile, rho, mu)
     funObj = @(u) GeneralizedFusedLasso(u, X, y, rho, L, mu);
 
     % Define the projection function
-    funProj = @(u) ProjGeneralizedFusedLassoGurobi(u, n, d);
+    funProj = @(u) ProjGeneralizedFusedLassoGurobi(u, k, d);
 
     % Optimization options
     options.verbose = 0; % Verbosity level
     options.optTol = 1e-6; % Optimality tolerance
     options.maxIter = 1000; % Maximum iterations
-    options.
+    options.SPGiters = 100;
 
     % Solve the optimization problem using minConf_PQN
     [u_opt, fval, funEvals] = minConF_PQN(funObj, u_init, funProj, options);
