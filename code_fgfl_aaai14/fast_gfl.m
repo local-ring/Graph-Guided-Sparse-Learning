@@ -78,7 +78,7 @@ while iter < opts.maxIter
             bFlag=1; % this shows that, the gradient step makes little improvement
             break;
         end
-        
+     
         if (Fzp <= Fzp_gamma)
             break;
         else
