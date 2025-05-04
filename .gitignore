@@ -9,3 +9,10 @@ gurobi.env
 /PQN/data/
 /code_fgfl_aaai14/result_gfl/
 /PQN/result/
+
+
+# stop tracking compiled extensions
+sparse_module.so
+# stop tracking experiment outputs
+results/
+logs/
