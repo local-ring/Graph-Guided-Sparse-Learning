@@ -8,9 +8,10 @@
 #SBATCH --mail-user=aolli@iu.edu
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=64      # threads per task
-#SBATCH --time=12:00:00
-#SBATCH --mem=128G
+#SBATCH --array=0-95
+#SBATCH --cpus-per-task=32
+#SBATCH --time=04:00:00
+#SBATCH --mem=196G
 #SBATCH -A r00939   # your allocation
 
 # 1) Load Miniconda module
@@ -29,6 +30,11 @@ cd "$SLURM_SUBMIT_DIR"
 
 # Make sure Python can find sparse_module.so
 export PYTHONPATH="$PWD:$PYTHONPATH"
+
+# tune BLAS to your cpus-per-task
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+export OPENBLAS_NUM_THREADS=$SLURM_CPUS_PER_TASK
+export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 # 5) Run your Python script under srun
 #    --cpus-per-task ensures Python sees 16 cores if using multithreading

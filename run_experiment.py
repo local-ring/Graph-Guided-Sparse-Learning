@@ -22,7 +22,7 @@ import logging
 # ensure repo root is on PYTHONPATH
 sys.path.insert(0, os.path.dirname(__file__))
 multiprocessing.set_start_method("fork", force=True)
-
+SLURM_CPUS = int(os.environ.get("SLURM_CPUS_PER_TASK", multiprocessing.cpu_count()))
 
 
 try:
@@ -41,20 +41,17 @@ except ImportError:
 
 import os
 
-os.environ["OMP_NUM_THREADS"] = "1"  # export OMP_NUM_THREADS=1
-os.environ["OPENBLAS_NUM_THREADS"] = "1"  # export OPENBLAS_NUM_THREADS=1
-os.environ["MKL_NUM_THREADS"] = "1"  # export MKL_NUM_THREADS=1
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1"  # export VECLIB_MAXIMUM_THREADS=1
-os.environ["NUMEXPR_NUM_THREADS"] = "1"  # export NUMEXPR_NUM_THREADS=1
 
-os.system("export OMP_NUM_THREADS=1")
-os.system("export OPENBLAS_NUM_THREADS=1")
-os.system("export MKL_NUM_THREADS=1")
-os.system("export VECLIB_MAXIMUM_THREADS=1")
-os.system("export NUMEXPR_NUM_THREADS=1")
+# 4) tell all the C/NumPy libs to only use those cores
+os.environ["OMP_NUM_THREADS"]           = str(SLURM_CPUS)
+os.environ["OPENBLAS_NUM_THREADS"]      = str(SLURM_CPUS)
+os.environ["MKL_NUM_THREADS"]           = str(SLURM_CPUS)
+os.environ["VECLIB_MAXIMUM_THREADS"]    = str(SLURM_CPUS)
+os.environ["NUMEXPR_NUM_THREADS"]       = str(SLURM_CPUS)
+
 
 # Detect available CPUs dynamically - AL
-NUM_CPUS = multiprocessing.cpu_count()
+NUM_CPUS = SLURM_CPUS
 
 
 np.random.seed(17)
@@ -630,20 +627,70 @@ def run_configuration(config):
         pkl.dump(raw_results, pf)
     logging.info(f"Saved raw pickle: {pkl_file}")
     logging.info(f"Config done: {suffix}")
-    
+# 1) move your “run_configuration” here, exactly as you wrote it:
+def run_configuration(config):
+    data_type, p, q, gamma = config
+    sample_sizes = np.arange(50, 1000, 100)
+    suffix = f"{data_type}_p{p}_q{q}_g{gamma}"
+    os.makedirs('results', exist_ok=True)
+    os.makedirs('logs', exist_ok=True)
+
+    # logging
+    log_file = os.path.join('logs', f"experiment_{suffix}.log")
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s [%(levelname)s] %(message)s',
+        handlers=[logging.FileHandler(log_file), logging.StreamHandler()]
+    )
+    logging.info(f"Config start: {suffix}")
+
+    mean_results = []
+    raw_results = {}
+
+    for n in sample_sizes:
+        logging.info(f"Sample size: {n}")
+        try:
+            results = run_experiment5(n, data_type, p, q, gamma)
+            rates   = analyze_results(results)
+            for method, vals in rates.items():
+                raw_results.setdefault(method, {})[n] = vals.copy()
+                mean_rate = float(np.mean(vals))
+                mean_results.append({
+                    'method': method,
+                    'n': n,
+                    'mean_accuracy': mean_rate
+                })
+                logging.info(f"{method} @ n={n}: mean accuracy={mean_rate:.4f}")
+        except Exception:
+            logging.exception(f"Error at sample size {n}")
+
+    # save CSV
+    import csv, pickle
+    csv_file = os.path.join('results', f"mean_accuracy_{suffix}.csv")
+    with open(csv_file, 'w', newline='') as f:
+        w = csv.DictWriter(f, fieldnames=['method','n','mean_accuracy'])
+        w.writeheader()
+        w.writerows(mean_results)
+    logging.info(f"Saved mean CSV: {csv_file}")
+
+    # save raw pickle
+    pkl_file = os.path.join('results', f"raw_accuracy_{suffix}.pkl")
+    with open(pkl_file, 'wb') as pf:
+        pickle.dump(raw_results, pf)
+    logging.info(f"Saved raw pickle: {pkl_file}")
+    logging.info(f"Config done: {suffix}")
+
+# 2) build your CONFIGS
+TYPES  = ['regular', 'weights', 'correlation', 'correlation_weights']
+P      = [0.9, 0.7, 0.5, 0.3]
+Q      = [0.05, 0.1, 0.2, 0.3]
+GAMMAS = [0.5, 1.0]
+CONFIGS = list(product(TYPES, P, Q, GAMMAS))
+
 def main():
-    types = ['regular', 'weights', 'correlation', 'correlation_weights']
-    p_values = [0.9, 0.7, 0.5, 0.3]
-    q_values = [0.05, 0.1, 0.2, 0.3]
-    gamma_values = [0.5, 1.0]
-    # p_values = [0.25]
-    # q_values = [0.01]
-    # gamma_values = [1.0]
+    # turn SLURM_ARRAY_TASK_ID → int index
+    task_id = int(os.environ.get('SLURM_ARRAY_TASK_ID', 0))
+    run_configuration(CONFIGS[task_id])
 
-    configs = list(product(types, p_values, q_values, gamma_values))
-    num_workers = min(len(configs), NUM_CPUS)
-    with multiprocessing.Pool(processes=num_workers) as pool:
-        pool.map(run_configuration, configs)
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
