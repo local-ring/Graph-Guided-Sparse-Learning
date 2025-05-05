@@ -18,6 +18,9 @@ import pickle as pkl
 from scipy.sparse import lil_matrix
 import logging
 
+# ensure repo root is on PYTHONPATH
+sys.path.insert(0, os.path.dirname(__file__))
+
 
 try:
     import sparse_module

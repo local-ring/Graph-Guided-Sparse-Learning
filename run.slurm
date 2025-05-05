@@ -26,6 +26,9 @@ conda activate gfl
 # 4) Move to your code directory (where you ran sbatch)
 cd "$SLURM_SUBMIT_DIR"
 
+# Make sure Python can find sparse_module.so
+export PYTHONPATH="$PWD:$PYTHONPATH"
+
 # 5) Run your Python script under srun
 #    --cpus-per-task ensures Python sees 16 cores if using multithreading
 srun python run_experiment_4.py
