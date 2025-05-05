@@ -23,6 +23,7 @@ eval "$(conda shell.bash hook)"
 # 3) Activate your pre-built env
 conda activate gfl
 
+python setup.py build_ext --inplace
 # 4) Move to your code directory (where you ran sbatch)
 cd "$SLURM_SUBMIT_DIR"
 
