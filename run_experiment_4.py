@@ -3,6 +3,7 @@ import sys
 import time
 import pickle
 import multiprocessing
+from multiprocessing.dummy import Pool as ThreadPool
 from itertools import product
 import pickle as pkl
 import numpy as np
@@ -11,6 +12,11 @@ from PIL import Image
 import matplotlib.pyplot as plt
 from scipy.linalg import eigh
 from collections import ChainMap, defaultdict
+import scipy.sparse as sp
+
+import pickle as pkl
+from scipy.sparse import lil_matrix
+import logging
 
 
 try:
@@ -40,6 +46,10 @@ os.system("export OPENBLAS_NUM_THREADS=1")
 os.system("export MKL_NUM_THREADS=1")
 os.system("export VECLIB_MAXIMUM_THREADS=1")
 os.system("export NUMEXPR_NUM_THREADS=1")
+
+# Detect available CPUs dynamically - AL
+NUM_CPUS = multiprocessing.cpu_count()
+
 
 np.random.seed(17)
 root_p = 'results/'
@@ -343,11 +353,10 @@ def algo_dmo_fw(
 
 
 def run_single_test(para):
-    method, img_name, trial_i, x_star, max_epochs, tol_algo, step, x_mat, edges, costs, g, s, c = para
+    method, img_name, trial_i, x_star, max_epochs, tol_algo, step, x_mat, edges, costs, g, s, c, gamma = para
     n, p = x_mat.shape
     x0 = np.zeros(p, dtype=np.float64)
-    gamma = 0.5
-    noise = np.random.normal(0, gamma, size=n) # AL: introduce noise here 
+    noise = np.random.normal(0, gamma, size=n) # AL: introduce noise to response here 
     y = np.dot(x_mat, x_star) + noise
 
     if method == 'graph-iht':
@@ -377,234 +386,6 @@ def run_single_test(para):
     return method, img_name, trial_i, list_est_err[-1], num_epochs, x_hat, list_run_time, list_loss, list_est_err
 
 
-def sparse_image_recovery(para):
-    trial_i, height, width, sample_ratio, max_epochs, tol_algo, step = para
-    np.random.seed(trial_i)
-    edges, costs = simu_grid_graph(height, width)
-    img_name, s, g, l1_norm, l2_norm, x_star = pkl.load(open(f'data/grid_img_angio.npz', 'rb'))
-    n = int(sample_ratio * s)
-    p = len(x_star)
-    x_star = x_star / np.linalg.norm(x_star, ord=1)
-    c = np.linalg.norm(x_star, ord=2)
-    x_mat = np.random.normal(0.0, 1.0, (n, p)) / np.sqrt(n)
-
-    results = {}
-
-    re = run_single_test(
-        ('gen-mp', img_name, trial_i, x_star, max_epochs, tol_algo, step, x_mat, edges, costs, g, s, c))
-    method, img_name, _, x_err, num_epochs, x_hat, list_run_time, list_loss, list_est_err = re
-    results['gen-mp'] = [x_hat, list_run_time, list_loss, list_est_err]
-
-    re = run_single_test(
-        ('dmo-acc-fw', img_name, trial_i, x_star, max_epochs, tol_algo, step, x_mat, edges, costs, g, s, c))
-    method, img_name, _, x_err, num_epochs, x_hat, list_run_time, list_loss, list_est_err = re
-    results['dmo-acc-fw'] = [x_hat, list_run_time, list_loss, list_est_err]
-
-    re = run_single_test(
-        ('graph-cosamp', img_name, trial_i, x_star, max_epochs, tol_algo, step, x_mat, edges, costs, g, s, c))
-    method, img_name, _, x_err, num_epochs, x_hat, list_run_time, list_loss, list_est_err = re
-    results['graph-cosamp'] = [x_hat, list_run_time, list_loss, list_est_err]
-
-    re = run_single_test(
-        ('cosamp', img_name, trial_i, x_star, max_epochs, tol_algo, step, x_mat, edges, costs, g, s, c))
-    method, img_name, _, x_err, num_epochs, x_hat, list_run_time, list_loss, list_est_err = re
-    results['cosamp'] = [x_hat, list_run_time, list_loss, list_est_err]
-
-    re = run_single_test(
-        ('graph-iht', img_name, trial_i, x_star, max_epochs, tol_algo, step, x_mat, edges, costs, g, s, c))
-    method, img_name, _, x_err, num_epochs, x_hat, list_run_time, list_loss, list_est_err = re
-    results['graph-iht'] = [x_hat, list_run_time, list_loss, list_est_err]
-    return trial_i, results
-
-    
-
-def run_experiment4():
-    step = 1
-    num_cpus = 40
-    num_trials = 20
-    max_epochs = 50
-    tol_algo = 1e-20
-    sample_ratio = 2.8
-    height, width = 100, 100
-    para_space = []
-    for trial_i in range(num_trials):
-        para_space.append((trial_i, height, width, sample_ratio, max_epochs, tol_algo, step))
-    pool = multiprocessing.Pool(processes=num_cpus)
-    results = pool.map(func=sparse_image_recovery, iterable=para_space)
-    pool.close()
-    pool.join()
-    pkl.dump(results, open(f'results/sparse_angio_image_experiment_4_ratio-{sample_ratio}-original.pkl', 'wb'))
-
-
-def draw_figure():
-    plt.rcParams["font.family"] = "Times New Roman"
-    plt.rcParams['text.usetex'] = True
-    plt.rc('text', usetex=True)
-    plt.rc('font', size=18)
-    plt.rc('text.latex', preamble=r'\usepackage{amsmath}\usepackage{bm}')
-    fontsize = 18
-    fig = plt.figure(constrained_layout=True, figsize=(15, 7))
-    gs = fig.add_gridspec(8, 12)
-    ax1 = fig.add_subplot(gs[:6, :6])
-    ax1.set_ylabel(r'$\log h({\bm x}_t)$', fontsize=fontsize)
-    ax1.set_xlabel(r'$t$', fontsize=fontsize, labelpad=-5.)
-    ax2 = fig.add_subplot(gs[:6, 6:])
-    ax2.set_ylabel(r'$\| \bm x_t - \bm x^*\|_2$', fontsize=fontsize)
-    ax2.set_xlabel(r'$t$', fontsize=fontsize, labelpad=-5.)
-
-    ax21 = fig.add_subplot(gs[6:, :2])
-    ax22 = fig.add_subplot(gs[6:, 2:4])
-    ax23 = fig.add_subplot(gs[6:, 4:6])
-    ax24 = fig.add_subplot(gs[6:, 6:8])
-    ax25 = fig.add_subplot(gs[6:, 8:10])
-    ax26 = fig.add_subplot(gs[6:, 10:])
-
-    img_name, s, g, l1_norm, l2_norm, x_star = pkl.load(open(f'data/grid_img_angio.npz', 'rb'))
-    x_star = x_star / np.linalg.norm(x_star, ord=1)
-    sample_ratio = 2.5
-    results = pkl.load(open(f'results/sparse_angio_image_experiment_4_ratio-{sample_ratio}-original.pkl', 'rb'))
-    method_list = ['dmo-acc-fw', 'graph-iht', 'graph-cosamp', 'cosamp', 'gen-mp']
-    method_labels = [r'$\textsc{DMO-AccFW}$', r'$\textsc{Graph-IHT}$',
-                     r'$\textsc{Graph-COSAMP}$', r'$\textsc{COSAMP}$',
-                     r'$\textsc{Gen-MP}$']
-    est_mat = {_: [] for _ in method_list}
-    loss_mat = {_: [] for _ in method_list}
-    ax = [ax21, ax22, ax23, ax24, ax25, ax26]
-    for trial_i, result in results:
-        for ind, method in enumerate(method_list):
-            x_hat, list_run_time, list_loss, list_est_err = result[method]
-            est_mat[method].append(list_est_err)
-            loss_mat[method].append(list_loss)
-            if trial_i == 0:
-                ax[ind + 1].imshow(x_hat.reshape(100, 100))
-                ax[ind + 1].set_xticks([])
-                ax[ind + 1].set_yticks([])
-                ax[ind + 1].set_title(method_labels[ind])
-    ax[0].imshow(x_star.reshape(100, 100))
-    ax[0].set_title(r'$\textsc{True-Signal}$')
-    ax[0].set_xticks([])
-    ax[0].set_yticks([])
-    for i in range(5):
-        ax[i].spines['top'].set_visible(False)
-        ax[i].spines['right'].set_visible(False)
-        ax[i].spines['bottom'].set_visible(False)
-        ax[i].spines['left'].set_visible(False)
-
-    list_marker = ['D', 'X', "H", 's', 'o', 'p']
-    import seaborn as sns
-    color_list = sns.color_palette("husl", 5)
-
-    for ind, method in enumerate(method_list):
-        est_mat[method] = np.mean(est_mat[method], axis=0)
-        loss_mat[method] = np.mean(loss_mat[method], axis=0)
-        ax1.plot(loss_mat[method], label=method_labels[ind], linewidth=2.,
-                 marker=list_marker[ind], color=color_list[ind])
-        ax1.legend()
-        ax2.plot(est_mat[method], label=method_labels[ind], linewidth=2.,
-                 marker=list_marker[ind], color=color_list[ind])
-        ax2.legend()
-    ax1.set_yscale('log')
-    ax2.set_yscale('log')
-    ax1.spines['top'].set_visible(False)
-    ax1.spines['right'].set_visible(False)
-    ax2.spines['top'].set_visible(False)
-    ax2.spines['right'].set_visible(False)
-
-    plt.show()
-    plt.subplots_adjust(wspace=0.1, hspace=0.1)
-    fig.savefig(f"figs/angio_graph-{sample_ratio}.pdf", dpi=300, bbox_inches='tight',
-                pad_inches=0, format='pdf')
-    plt.close()
-
-
-def show_run_time():
-    img_name, s, g, l1_norm, l2_norm, x_star = pkl.load(open(f'data/grid_img_angio.npz', 'rb'))
-    sample_ratio = 2.5
-    results = pkl.load(open(f'results/sparse_angio_image_experiment_4_ratio-{sample_ratio}-original.pkl', 'rb'))
-    method_list = ['graph-cosamp', 'cosamp', 'gen-mp', 'graph-iht', 'dmo-acc-fw']
-    method_labels = [r'$\textsc{Graph-COSAMP}$', r'$\textsc{COSAMP}$', r'$\textsc{Gen-MP}$',
-                     r'$\textsc{Graph-IHT}$', r'$\textsc{DMO-AccFW}$']
-    run_time_mat = {_: [] for _ in method_list}
-    for trial_i, result in results:
-        for ind, method in enumerate(method_list):
-            x_hat, list_run_time, list_loss, list_est_err = result[method]
-            run_time_mat[method].append(list_run_time)
-    for ind, method in enumerate(method_list):
-        std = np.std(run_time_mat[method], axis=0)
-        run_time_mat[method] = np.mean(run_time_mat[method], axis=0)
-        print(method, len(run_time_mat[method]), run_time_mat[method][-1], std[-1])
-
-
-import numpy as np
-import scipy.sparse as sp
-
-def generate_data_fixed_clusters(n, d, k, p=0.95, q=0.01):
-    """
-    Generate synthetic data where the first k features form one cluster with non-zero weights,
-    and the remaining d-k form another (zero-weighted) cluster.
-    
-    Parameters:
-    - n: number of samples
-    - d: number of features
-    - k: number of non-zero features
-    - gamma: noise level
-    - p: intra-cluster connection probability
-    - q: inter-cluster connection probability
-
-    Returns:
-    A dictionary with:
-        X: design matrix
-        y: target
-        w: true weights
-        edges: (i, j) edge list
-        weights: edge weights (currently all 1.0)
-        clusters: list of feature indices [selected, rest]
-    """
-
-    assert 0 < k < d, "k must be between 0 and d"
-
-    # Define clusters
-    selected_cluster = np.arange(k)
-    rest_cluster = np.arange(k, d)
-    clusters = [selected_cluster, rest_cluster]
-
-    # Initialize sparse adjacency matrix
-    A = sp.lil_matrix((d, d))
-
-    # Intra-cluster connections
-    for cluster in clusters:
-        sz = len(cluster)
-        block = (np.random.rand(sz, sz) < p).astype(int)
-        np.fill_diagonal(block, 0)
-        block = np.triu(block) + np.triu(block, 1).T  # symmetric
-        for i, u in enumerate(cluster):
-            for j, v in enumerate(cluster):
-                A[u, v] = block[i, j]
-
-    # Inter-cluster connections
-    block = (np.random.rand(len(selected_cluster), len(rest_cluster)) < q).astype(int)
-    for i, u in enumerate(selected_cluster):
-        for j, v in enumerate(rest_cluster):
-            A[u, v] = block[i, j]
-            A[v, u] = block[i, j]
-
-    # Convert adjacency matrix to edge list
-    A_coo = A.tocoo()
-    edges = np.vstack((A_coo.row, A_coo.col)).T
-    costs = A_coo.data.astype(np.float64)
-
-    # Generate true weights
-    w = np.zeros(d)
-    sign = np.random.choice([-1, 1], size=k)
-    w[:k] = sign / np.sqrt(k)
-
-    # Generate data
-    X = np.random.multivariate_normal(np.zeros(d), np.eye(d), size=n)
-    # signal = X @ w
-    # noise = np.random.normal(0, gamma, size=n)
-    # y = signal + noise
-
-    return X, w, edges, costs, k
 
 
 def recovery_accuracy(x_hat, k=50):
@@ -625,7 +406,7 @@ def sparse_learning_recovery(para):
     method, img_name, _, x_err, num_epochs, x_hat, list_run_time, list_loss, list_est_err = re
     """
     # we need pass by the x_mat, s, g, x_star, edges, costs
-    trial_i, x_mat, x_star, edges, costs, s, g, max_epochs, tol_algo, step = para
+    trial_i, x_mat, x_star, edges, costs, s, g, max_epochs, tol_algo, step, gamma = para
     np.random.seed(trial_i)
 
     # img_name, s, g, l1_norm, l2_norm, x_star = pkl.load(open(f'data/grid_img_angio.npz', 'rb'))
@@ -640,93 +421,223 @@ def sparse_learning_recovery(para):
     results = {}
 
     re = run_single_test(
-        ('gen-mp', img_name, trial_i, x_star, max_epochs, tol_algo, step, x_mat, edges, costs, g, s, c))
+        ('gen-mp', img_name, trial_i, x_star, max_epochs, tol_algo, step, x_mat, edges, costs, g, s, c, gamma))
     method, img_name, _, x_err, num_epochs, x_hat, list_run_time, list_loss, list_est_err = re
     results['gen-mp'] = [x_hat, list_run_time, list_loss, list_est_err]
 
     re = run_single_test(
-        ('dmo-acc-fw', img_name, trial_i, x_star, max_epochs, tol_algo, step, x_mat, edges, costs, g, s, c))
+        ('dmo-acc-fw', img_name, trial_i, x_star, max_epochs, tol_algo, step, x_mat, edges, costs, g, s, c, gamma))
     method, img_name, _, x_err, num_epochs, x_hat, list_run_time, list_loss, list_est_err = re
     results['dmo-acc-fw'] = [x_hat, list_run_time, list_loss, list_est_err]
 
     re = run_single_test(
-        ('graph-cosamp', img_name, trial_i, x_star, max_epochs, tol_algo, step, x_mat, edges, costs, g, s, c))
+        ('graph-cosamp', img_name, trial_i, x_star, max_epochs, tol_algo, step, x_mat, edges, costs, g, s, c, gamma))
     method, img_name, _, x_err, num_epochs, x_hat, list_run_time, list_loss, list_est_err = re
     results['graph-cosamp'] = [x_hat, list_run_time, list_loss, list_est_err]
 
     re = run_single_test(
-        ('cosamp', img_name, trial_i, x_star, max_epochs, tol_algo, step, x_mat, edges, costs, g, s, c))
+        ('cosamp', img_name, trial_i, x_star, max_epochs, tol_algo, step, x_mat, edges, costs, g, s, c, gamma))
     method, img_name, _, x_err, num_epochs, x_hat, list_run_time, list_loss, list_est_err = re
     results['cosamp'] = [x_hat, list_run_time, list_loss, list_est_err]
 
     re = run_single_test(
-        ('graph-iht', img_name, trial_i, x_star, max_epochs, tol_algo, step, x_mat, edges, costs, g, s, c))
+        ('graph-iht', img_name, trial_i, x_star, max_epochs, tol_algo, step, x_mat, edges, costs, g, s, c, gamma))
     method, img_name, _, x_err, num_epochs, x_hat, list_run_time, list_loss, list_est_err = re
     results['graph-iht'] = [x_hat, list_run_time, list_loss, list_est_err]
 
     return trial_i, results
 
-def run_experiment5(n):
+def generate_data(n, d, k, p=0.95, q=0.01, type='regular'):
+    """
+    Generate synthetic data where the first k features form one cluster with non-zero weights,
+    and the remaining d-k form another (zero-weighted) cluster.
+    
+    Parameters:
+    - n: number of samples
+    - d: number of features
+    - k: number of non-zero features
+    - p: intra-cluster connection probability
+    - q: inter-cluster connection probability
+    - type: type of data ('regular', 'weights', 'correlation', 'correlation_weights')
+
+    Returns:
+    A tuple: (X, w, edges, costs, k) where
+        X: design matrix (n x d)
+        w: true weight vector (d,)
+        edges: array of graph edges (m x 2)
+        costs: edge weights array (m,)
+        k: number of non-zero features
+    """
+    from scipy import sparse as sp
+
+    assert 0 < k < d, "k must be between 0 and d"
+
+    # Define feature clusters
+    selected_cluster = np.arange(k)
+    rest_cluster = np.arange(k, d)
+    clusters = [selected_cluster, rest_cluster]
+
+    # Build adjacency matrix
+    A = sp.lil_matrix((d, d))
+    for cluster in clusters:
+        sz = len(cluster)
+        block = (np.random.rand(sz, sz) < p).astype(int)
+        np.fill_diagonal(block, 0)
+        block = np.triu(block) + np.triu(block, 1).T
+        for i, u in enumerate(cluster):
+            for j, v in enumerate(cluster):
+                A[u, v] = block[i, j]
+    # Inter-cluster edges
+    inter = (np.random.rand(len(selected_cluster), len(rest_cluster)) < q).astype(int)
+    for i, u in enumerate(selected_cluster):
+        for j, v in enumerate(rest_cluster):
+            A[u, v] = inter[i, j]
+            A[v, u] = inter[i, j]
+
+    # Convert to edge list
+    A_coo = A.tocoo()
+    edges = np.vstack((A_coo.row, A_coo.col)).T
+    costs = A_coo.data.astype(np.float64)
+
+    # Generate true weight vector
+    w = np.zeros(d)
+    if type == 'regular':
+        w[:k] = 1 / np.sqrt(k)
+    elif type in ['weights', 'correlation_weights']:
+        sign = np.random.choice([-1, 1], size=k)
+        w[:k] = sign / np.sqrt(k)
+        # add small variation
+        w += np.random.normal(0, 0.1 * np.abs(w), size=d)
+
+    # Generate design matrix
+    if type in ['correlation', 'correlation_weights']:
+        mean, cov = np.zeros(d), np.eye(d)
+        correlated_ratio = 0.3
+        # correlate selected and rest features
+        sel_corr = np.random.choice(selected_cluster, int(correlated_ratio * k), replace=False)
+        rest_corr = np.random.choice(rest_cluster, int(correlated_ratio * k), replace=False)
+        for i in sel_corr:
+            for j in rest_corr:
+                cov[i, j] = cov[j, i] = 0.9
+        # ensure positive semidefiniteness
+        eigvals, eigvecs = np.linalg.eigh(cov)
+        cov = eigvecs @ np.diag(np.maximum(eigvals, 0)) @ eigvecs.T
+        X = np.random.multivariate_normal(mean, cov, size=n)
+    else:
+        X = np.random.multivariate_normal(np.zeros(d), np.eye(d), size=n)
+
+    return X, w, edges, costs, k
+
+
+def run_experiment5(n, type='regular', p=0.95, q=0.01, gamma=0.05):
+    """
+    Run trials for a single sample size and configuration.
+    """
     step = 1
-    num_cpus = 40
-    num_trials = 10
+    num_trials = 2
     max_epochs = 50
     tol_algo = 1e-20
-    sample_ratio = 2.8
-    height, width = 100, 100
-    g = 1 # the number of connected components of the underlying sparsity pattern
-    d, k, p, q = 1000, 50, 0.7, 0.2
+    g = 1
+    d, k = 1000, 50
+
     para_space = []
     for trial_i in range(num_trials):
-        x_mat, x_star, edges, costs, s = generate_data_fixed_clusters(n, d, k, p, q)
-        para_space.append((trial_i, x_mat, x_star, edges, costs, s, g, max_epochs, tol_algo, step))
-    pool = multiprocessing.Pool(processes=num_cpus)
-    results = pool.map(func=sparse_learning_recovery, iterable=para_space)
-    pool.close()
-    pool.join()
-    # pkl.dump(results, open(f'results/sparse_angio_image_experiment_4_ratio-{sample_ratio}-original.pkl', 'wb'))
+        X, w, edges, costs, s = generate_data(n, d, k, p, q, type)
+        para_space.append((trial_i, X, w, edges, costs, s, g, max_epochs, tol_algo, step, gamma))
+
+    # Use threads for inner parallelism
+    num_workers = min(num_trials, NUM_CPUS)
+    with ThreadPool(processes=num_workers) as pool:
+        results = pool.map(sparse_learning_recovery, para_space)
+    # results is list of (trial_i, res)
     return results
 
-
 def analyze_results(results):
-    # result will be like [(trial_i, results)]
-    support_recovery_rates = defaultdict(list)  
-    for trail_i, results in results:
-        for method, [x_hat, list_run_time, list_loss, list_est_err] in results.items():
+    support_recovery_rates = defaultdict(list)
+    for trail_i, res in results:
+        for method, [x_hat, _, _, _] in res.items():
             support_recovery_rates[method].append(recovery_accuracy(x_hat))
-
     return support_recovery_rates
 
-def visualize_results(sample_sizes, support_recovery_rates):
+
+def visualize_results(sample_sizes, support_recovery_rates, suffix=''):
     plt.figure(figsize=(10, 5))
-    plt.plot(sample_sizes, support_recovery_rates['gen-mp'], label='gen-mp')
-    plt.plot(sample_sizes, support_recovery_rates['dmo-acc-fw'], label='dmo-acc-fw')
-    plt.plot(sample_sizes, support_recovery_rates['graph-cosamp'], label='graph-cosamp')
-    plt.plot(sample_sizes, support_recovery_rates['cosamp'], label='cosamp')
-    plt.plot(sample_sizes, support_recovery_rates['graph-iht'], label='graph-iht')
+    for method, rates in support_recovery_rates.items():
+        plt.plot(sample_sizes, rates, label=method)
     plt.legend()
     plt.xlabel('Sample Size')
     plt.ylabel('Support Recovery Rate')
-    plt.title('Support Recovery Rate vs. Sample Size')
-    plt.savefig('results/sparse_angio_image_experiment_4_ratio-2.8-original.png')
-    plt.show()
+    plt.title(f'Support Recovery Rate vs. Sample Size ({suffix})')
+    os.makedirs('results', exist_ok=True)
+    plt.savefig(f'results/recovery_curve_{suffix}.png')
+    plt.close()
 
+
+def run_configuration(config):
+    data_type, p, q, gamma = config
+    sample_sizes = np.arange(50, 100, 100)
+    suffix = f"{data_type}_p{p}_q{q}_g{gamma}"
+    # ensure dirs
+    os.makedirs('results', exist_ok=True)
+    os.makedirs('logs', exist_ok=True)
+    # setup logging
+    log_file = os.path.join('logs', f"experiment_{suffix}.log")
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s [%(levelname)s] %(message)s',
+        handlers=[logging.FileHandler(log_file), logging.StreamHandler()]
+    )
+    logging.info(f"Config start: {suffix}")
+
+    # Containers for mean and raw accuracies
+    mean_results = []  # list of dicts: method, n, mean_accuracy
+    raw_results = { }
+
+    for n in sample_sizes:
+        logging.info(f"Sample size: {n}")
+        try:
+            results = run_experiment5(n, data_type, p, q, gamma)
+            rates = analyze_results(results)
+            # rates: method -> list of per-trial accuracies
+            for method, vals in rates.items():
+                # record raw list
+                raw_results.setdefault(method, {})[n] = vals.copy()
+                # record mean
+                mean_rate = np.mean(vals)
+                mean_results.append({'method': method, 'n': n, 'mean_accuracy': mean_rate})
+                logging.info(f"{method} @ n={n}: mean accuracy={mean_rate:.4f}")
+        except Exception:
+            logging.exception(f"Error at sample size {n}")
+
+    # save mean results to CSV
+    import csv
+    csv_file = os.path.join('results', f"mean_accuracy_{suffix}.csv")
+    with open(csv_file, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=['method', 'n', 'mean_accuracy'])
+        writer.writeheader()
+        writer.writerows(mean_results)
+    logging.info(f"Saved mean CSV: {csv_file}")
+
+    # save raw accuracy dict as pickle
+    pkl_file = os.path.join('results', f"raw_accuracy_{suffix}.pkl")
+    with open(pkl_file, 'wb') as pf:
+        pkl.dump(raw_results, pf)
+    logging.info(f"Saved raw pickle: {pkl_file}")
+    logging.info(f"Config done: {suffix}")
+    
 def main():
-    # draw_figure()
-    # exit()
-    # run_experiment5()
-    sample_sizes = np.arange(50, 1000, 100)
-    # support_recovery_rates = []
-    support_recovery_rates_models = defaultdict(list)
-    for sample_size in sample_sizes:
-        results = run_experiment5(sample_size)
-        print("Analyzing results for sample size:", sample_size)
-        support_recovery_rate = analyze_results(results)
-        for model in support_recovery_rate:
-            support_recovery_rates_models[model].append(np.mean(support_recovery_rate[model]))
-            print("The average support recovery rate for model", model, "is", np.mean(support_recovery_rate[model]))
-            print(model, np.mean(support_recovery_rate[model]))
-    visualize_results(sample_sizes, support_recovery_rates_models)
+    types = ['regular', 'weights', 'correlation', 'correlation_weights']
+    # p_values = [0.9, 0.7, 0.5, 0.3]
+    # q_values = [0.05, 0.1, 0.2, 0.3]
+    # gamma_values = [0.5, 1.0]
+    p_values = [0.25]
+    q_values = [0.01]
+    gamma_values = [1.0]
+
+    configs = list(product(types, p_values, q_values, gamma_values))
+    num_workers = min(len(configs), NUM_CPUS)
+    with multiprocessing.Pool(processes=num_workers) as pool:
+        pool.map(run_configuration, configs)
 
 if __name__ == '__main__':
     main()
