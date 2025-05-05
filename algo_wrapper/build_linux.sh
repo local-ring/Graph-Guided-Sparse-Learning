@@ -19,7 +19,8 @@ PYTHON_LDFLAGS="$($PYTHON_CONFIG --ldflags --embed)"
 # Source files and output
 SRC_DIR="c"
 SRC="$SRC_DIR/main_wrapper.c $SRC_DIR/head_tail_proj.c $SRC_DIR/fast_pcst.c $SRC_DIR/sort.c"
-OUTPUT="../sparse_module.so"
+OUTPUT="$(dirname "$(pwd)")/sparse_module.so"
+
 
 echo "Compiling $OUTPUT …"
 $CC $CFLAGS $PYTHON_INCLUDES -I$NUMPY_INCLUDE -shared \
