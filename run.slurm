@@ -8,9 +8,9 @@
 #SBATCH --mail-user=aolli@iu.edu
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=16      # threads per task
+#SBATCH --cpus-per-task=64      # threads per task
 #SBATCH --time=12:00:00
-#SBATCH --mem=64G
+#SBATCH --mem=128G
 #SBATCH -A r00939   # your allocation
 
 # 1) Load Miniconda module

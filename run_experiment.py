@@ -18,8 +18,11 @@ import pickle as pkl
 from scipy.sparse import lil_matrix
 import logging
 
+
 # ensure repo root is on PYTHONPATH
 sys.path.insert(0, os.path.dirname(__file__))
+multiprocessing.set_start_method("fork", force=True)
+
 
 
 try:
@@ -537,7 +540,7 @@ def run_experiment5(n, type='regular', p=0.95, q=0.01, gamma=0.05):
     Run trials for a single sample size and configuration.
     """
     step = 1
-    num_trials = 2
+    num_trials = 10
     max_epochs = 50
     tol_algo = 1e-20
     g = 1
