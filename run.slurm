@@ -32,4 +32,4 @@ export PYTHONPATH="$PWD:$PYTHONPATH"
 
 # 5) Run your Python script under srun
 #    --cpus-per-task ensures Python sees 16 cores if using multithreading
-srun python run_experiment_4.py
+srun python run_experiment.py
