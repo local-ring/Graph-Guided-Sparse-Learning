@@ -1,69 +1,13 @@
 name: gfl
 channels:
-  - defaults
-  - bioconda
   - conda-forge
+  - defaults
 
 dependencies:
-  # Core
-  - python=3.11.7
-  - blas
-  - bzip2=1.0.8
-  - ca-certificates
-  - jpeg=9*
-  - libbrotlicommon=1.0.9
-  - libdeflate=1.17
-  - libffi=3.4.4
-  - libsodium=1.0.20
-  - libwebp-base=1.3.2
-  - llvm-openmp=14.*
-  - ncurses=6.4
-  - tzdata=2024b
-  - xz=5.4.6
-  - zlib=1.2.13
-  - lerc=3.0
-  - libbrotlidec=1.0.9
-  - libbrotlienc=1.0.9
-  - libedit=3.1.20191231
-  - libgfortran5
-  - libpng=1.6.39
-  - lz4-c=1.9.4
-  - openssl
-  - readline=8.2
-  - tk=8.6.14
-  - brotli-bin=1.0.9
-  - freetype=2.12.1
-  - krb5=1.21.3
-  - sqlite=3.45.3
-  - zstd=1.5.6
-  - brotli=1.0.9
-  - libopenblas=0.3.21
-  - libtiff=4.5.1
+  - python=3.11      # pick the 3.11.x series you need
+  - numpy            # for array operations
+  - scipy            # for linear algebra, I/O (scipy.io), sparse, and eigh
+  - pillow           # for PIL.Image
+  - matplotlib       # for plotting with plt
+  - pip              # so you can still pip-install anything else
 
-  # Science & plotting
-  - numpy=1.26.*
-  - scipy=1.12.*
-  - matplotlib=3.9.*
-  - networkx=3.3
-  - pillow=10.4.0
-
-  # Interactive / utility
-  - pip
-  - ipython
-  - ipykernel
-  - jupyter_client
-  - prompt-toolkit
-  - python-dateutil
-  - pexpect
-  - traitlets
-  - typing_extensions
-  - matplotlib-inline
-
-  # Optional (uncomment if needed)
-  # - pandas
-  # - h5py
-  # - gurobi       # if you have a Gurobi license/server
-
-  # Any pip‑only packages:
-  - pip:
-      # - your-private-package
