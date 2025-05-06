@@ -45,7 +45,7 @@ Some user may have the following error,
 PackagesNotFoundError: The following packages are not available from current channels:
   - gurobi
 ```
-To resolve this, add the Gurobi channel explicitly before creating the env and ensure you have a valid academic or commercial license.
+To resolve this, add the Gurobi channel explicitly before creating the env and ensure you have a valid academic or commercial license for Gurobi:
 
 ```bash
 conda config --add channels gurobi
