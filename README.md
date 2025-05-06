@@ -11,7 +11,7 @@ This repository contains the implementation of **Graph-Guided Sparse Learning vi
 
 ---
 
-## 📂 Repository Structure
+## Repository Structure
 
 ```
 graph-guided-sparse-learning
@@ -40,13 +40,24 @@ conda env create -f environment.yml
 conda activate gfl
 ```
 
+Some user may have the following error, 
+```
+PackagesNotFoundError: The following packages are not available from current channels:
+  - gurobi
+```
+To resolve this, add the Gurobi channel explicitly before creating the env and ensure you have a valid academic or commercial license.
+
+```bash
+conda config --add channels gurobi
+```
+
 Run the `Experiment.ipynb` notebook to create datasets for training and evaluation.
 
 Run the `inference.ipynb` notebook to run the inference on your data. We also include an example with small dataset in this notebook to display how to run the inference on a dataset.
 
 ---
 
-## 🔬 Optimization Methods Implemented
+## Optimization Methods Implemented
 
 | Method                  | Description |
 |-------------------------|-------------|
