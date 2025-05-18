@@ -14,7 +14,7 @@ GFORTRAN_LIB="/opt/homebrew/opt/gcc/lib/gcc/current"
 
 # Source files
 SRC_FILES="c/main_wrapper.c c/head_tail_proj.c c/fast_pcst.c c/sort.c"
-OUTPUT_PATH="../../sparse_module.so"
+OUTPUT_PATH="../sparse_module.so"
 
 echo "Compiling sparse_module.so using Python: $PYTHON_BIN"
 

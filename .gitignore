@@ -17,3 +17,6 @@ sparse_module.so
 results/
 logs/
 .src/
+
+# fuck macOS
+.DS_Store
