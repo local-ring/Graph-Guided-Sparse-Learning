@@ -5,10 +5,10 @@ gurobi.env
 /node_modules/
 /dist/
 /data/
-/code_fgfl_aaai14/data_gfl/
-/PQN/data/
-/code_fgfl_aaai14/result_gfl/
-/PQN/result/
+src/code_fgfl_aaai14/data_gfl/
+src/PQN/data/
+src/code_fgfl_aaai14/result_gfl/
+src/PQN/result/
 
 
 # stop tracking compiled extensions
@@ -16,3 +16,4 @@ sparse_module.so
 # stop tracking experiment outputs
 results/
 logs/
+.src/
