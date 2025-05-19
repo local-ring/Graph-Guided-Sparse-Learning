@@ -22,10 +22,6 @@ class Solver:
         self.d = None
         self.k = None
         self.c = c
-        # self.datafile = os.path.join(os.path.abspath(datafile), f'real_data')
-        # self.resultfile = os.path.join(os.path.abspath(resultfile), f'real_data') # matlab does not like relative path
-        # self.datafile_pqn = os.path.join(os.path.abspath('./src/PQN/data/'), f'real_data')
-        # self.resultfile_pqn = os.path.join(os.path.abspath('./src/PQN/result/'), f'real_data')
         self.datafile = os.path.abspath('./data/data_gfl/')
         self.resultfile = os.path.abspath('./data/result_gfl/') 
         self.datafile_pqn = os.path.abspath('./data/data_PQN/')
