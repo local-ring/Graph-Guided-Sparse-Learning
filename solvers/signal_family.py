@@ -18,18 +18,6 @@ import pickle as pkl
 from scipy.sparse import lil_matrix
 import logging
 
-# # ensure repo root is on PYTHONPATH
-# sys.path.insert(0, os.path.dirname(__file__))
-
-
-# current_script_path = os.path.abspath(__file__)
-# project_root_path = os.path.abspath(os.path.join(os.path.dirname(current_script_path), '..'))
-# src_path = os.path.join(project_root_path, 'src')
-
-# if src_path not in sys.path:
-#     sys.path.insert(0, src_path) # Insert at the beginning to prioritize this path
-
-
 try:
     import sparse_module
     try:
@@ -357,11 +345,8 @@ def sparse_learning_solver(para):
     run_single_test( ('gen-mp', img_name, trial_i, x_star, max_epochs, tol_algo, step, x_mat, edges, costs, g, s, c))
     method, img_name, _, x_err, num_epochs, x_hat, list_run_time, list_loss, list_est_err = re
     """
-    # we need pass by the x_mat, s, g, x_star, edges, costs
     trial_i, x_mat, y, edges, costs, s, g, max_epochs, tol_algo, step, c = para
     np.random.seed(trial_i)
-
-    # img_name, s, g, l1_norm, l2_norm, x_star = pkl.load(open(f'data/grid_img_angio.npz', 'rb'))
     img_name = 'dummy'
 
     results = {}
